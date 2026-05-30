@@ -13,6 +13,11 @@
     "sim": "node --experimental-transform-types scripts/sim.ts",
     "report": "node --experimental-transform-types scripts/report.ts",
     "gen-fixtures": "node --experimental-transform-types scripts/gen-fixtures.ts",
+    "ab": "node --experimental-transform-types scripts/ab.ts",
+    "sweep": "node --experimental-transform-types scripts/sweep.ts",
+    "ev": "node --experimental-transform-types scripts/ev.ts",
+    "search": "node --experimental-transform-types scripts/search-bot.ts",
+    "tune": "node --experimental-transform-types scripts/tune.ts",
     "doctor": "node --experimental-transform-types scripts/doctor.ts",
     "check": "npm run doctor && npm run test && node --experimental-transform-types scripts/sim.ts --n 200 --assert-kpi && npm run build",
     "typecheck": "tsc --noEmit"

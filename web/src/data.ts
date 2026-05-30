@@ -59,6 +59,7 @@ export interface EnemyType {
   tier: number;
   telegraph: boolean;
   spawnCap: number | null;
+  params: Record<string, number>;
   note: string;
 }
 
@@ -93,7 +94,9 @@ const EFFECTS: Record<string, EffectFactory> = {
   atkBuff: (p) => (_g, owner) => {
     owner.attack += p.amount;
   },
-  healFlat: (p) => (_g, owner) => {
+  healFlat: (p) => (g, owner) => {
+    // combatOnly: フロアに生存敵がいるターンのみ回復（戦闘外でのうろつき全回復を封じる）。
+    if (p.combatOnly && !g.enemies.some((e: { alive: boolean }) => e.alive)) return;
     owner.heal(p.amount);
   },
   spreadPoison: (p) => (g, _o, victim) => {
@@ -137,7 +140,8 @@ function buildEnemy(e: any): EnemyType {
   return {
     id: e.id, name: e.name, symbol: e.symbol, hp: e.hp, attack: e.atk, defense: e.defense,
     behavior: e.behavior, sight: e.sight ?? 8, gold: e.gold ?? 3, tier: e.tier ?? 1,
-    telegraph: e.telegraph ?? false, spawnCap: e.spawnCap ?? null, note: e.note ?? "",
+    telegraph: e.telegraph ?? false, spawnCap: e.spawnCap ?? null,
+    params: e.params ?? {}, note: e.note ?? "",
   };
 }
 
@@ -157,8 +161,20 @@ export const SPAWN_TABLE: Record<number, Array<[string, number]>> = Object.fromE
   ),
 );
 export const ARCHETYPES: string[] = [...(raw.archetypes as string[])];
-export const RUN = raw.run as { floors: number; bossFloor: number; floorClearHeal: number };
+export const RUN = raw.run as {
+  floors: number;
+  bossFloor: number;
+  floorClearHeal: number;
+  restHeal: number;
+  restChance: number;
+  bossPool: string[];
+};
 export const PLAYER = raw.player as { hp: number; atk: number };
+export const TUNING = (raw as any).tuning as {
+  poisonAmp: number;
+  poisonDecay: number;
+  rewardChoices: number;
+};
 export const SYNERGY_COMBOS = ((raw as any).synergyCombos ?? []) as Array<{
   name: string;
   archetype: string;

@@ -46,6 +46,14 @@ export function renderTopbar(game: Game): { floor: string; turn: string; seed: s
   };
 }
 
+// 一目で分かるアイコン（絵文字は単一コードポイントの堅牢なものを選択）。
+const PLAYER_ICON = "🧙";
+const EXIT_ICON = "🪜";
+const ENEMY_ICON: Record<string, string> = {
+  rat: "🐀", slime: "🟢", bat: "🦇", archer: "🏹", brute: "👹", healer: "🩺",
+  boss: "👑", twin_beast: "🐺",
+};
+
 export function renderBoard(game: Game): { html: string; cols: number } {
   const lvl = game.level;
   const danger = game.dangerCells();
@@ -57,28 +65,30 @@ export function renderBoard(game: Game): { html: string; cols: number } {
       const key = `${x},${y}`;
       const dg = danger.has(key) ? " c-danger" : "";
       if (x === game.player.x && y === game.player.y) {
-        out.push(`<span class="cell c-player${dg}">@</span>`);
+        const cur = Math.max(0, game.player.hp);
+        out.push(`<span class="cell c-player${dg}" title="あなた（HP ${cur}/${game.player.maxHp}）">${PLAYER_ICON}</span>`);
         continue;
       }
       const e = epos.get(key);
       if (e) {
-        const cls = e.telegraph ? "c-telegraph" : e.etype.id === "boss" ? "c-boss" : "c-enemy";
-        out.push(`<span class="cell ${cls}${dg}">${esc(e.symbol)}</span>`);
+        const tg = e.telegraph ? " c-telegraph" : "";
+        const icon = ENEMY_ICON[e.etype.id] ?? "❓";
+        const tip = `${e.etype.name}（HP ${Math.max(0, e.hp)}/${e.maxHp}${e.poison > 0 ? `・毒${e.poison}` : ""}）${e.telegraph ? " ⚠攻撃の予兆" : ""}`;
+        out.push(`<span class="cell c-enemy${tg}${dg}" title="${esc(tip)}">${icon}</span>`);
         continue;
       }
       const ch = lvl.tiles[y][x];
-      if (ch === "#") out.push(`<span class="cell c-wall${dg}">#</span>`);
-      else if (ch === ">") out.push(`<span class="cell c-exit${dg}">&gt;</span>`);
-      else out.push(`<span class="cell c-floor${dg}">·</span>`);
+      if (ch === "#") out.push(`<span class="cell c-wall"></span>`);
+      else if (ch === ">") out.push(`<span class="cell c-exit${dg}" title="出口（降りる）">${EXIT_ICON}</span>`);
+      else out.push(`<span class="cell c-floor${dg}"></span>`);
     }
   }
   return { html: out.join(""), cols: lvl.w };
 }
 
 export const LEGEND_HTML =
-  `<b>@</b>あなた　<span class="c-enemy">r/s/b/a/B/h</span> 敵　` +
-  `<span class="c-boss">D</span> ボス　<span class="c-exit">&gt;</span> 出口　` +
-  `<span class="c-danger">&nbsp;赤背景&nbsp;</span>=予兆(危険)`;
+  `<b>🧙 あなた</b>　｜　敵: 🐀ネズミ 🟢スライム 🦇コウモリ 🏹射手 👹大兵 🩺治癒師　｜　👑/🐺 ボス　｜　🪜 出口　｜　` +
+  `<span class="c-danger">&nbsp;赤マス&nbsp;</span> 予兆＝次の攻撃範囲（外へ動けば回避）。マスにカーソルで詳細`;
 
 export function renderHud(game: Game): string {
   const p = game.player;

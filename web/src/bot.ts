@@ -166,7 +166,9 @@ export class Bot {
     const exit: Coord = [g.level.exit[0], g.level.exit[1]];
 
     if (this.rush) {
-      const step = this.bfsStep([p.x, p.y], exit, new Set());
+      // 通常フロアは出口へ直行。ボス階はボスへ直行（出口=ボス初期位置だがボスは動くため現在地を狙う）。
+      const goal: Coord = g.isBossFloor() && target ? [target.x, target.y] : exit;
+      const step = this.bfsStep([p.x, p.y], goal, new Set());
       if (step && !(step[0] === 0 && step[1] === 0)) return ["move", step[0], step[1]];
       return ["wait"];
     }
@@ -231,7 +233,7 @@ export class Bot {
         this.rush = false;
       }
       this.floorSteps += 1;
-      if (this.floorSteps > this.rushAt && !g.isBossFloor()) this.rush = true;
+      if (this.floorSteps > this.rushAt) this.rush = true;
       g.playerAct(this.decide());
     }
     return g.result();
@@ -256,7 +258,7 @@ export class Bot {
         this.rush = false;
       }
       this.floorSteps += 1;
-      if (this.floorSteps > this.rushAt && !g.isBossFloor()) this.rush = true;
+      if (this.floorSteps > this.rushAt) this.rush = true;
       g.playerAct(this.decide());
       trace.push(sig(g));
     }

@@ -7,9 +7,11 @@
     "note_flags": "flags はフック以外の参照目印。poison_amp は毒tickの2倍化(engine._tick_poison)、lowhp は情報用。"
   },
 
-  "run": { "floors": 5, "bossFloor": 5, "floorClearHeal": 0.16 },
+  "run": { "floors": 5, "bossFloor": 5, "floorClearHeal": 0.16, "restHeal": 0.34, "restChance": 0.25, "bossPool": ["boss", "twin_beast"] },
 
   "player": { "hp": 44, "atk": 2 },
+
+  "tuning": { "poisonAmp": 2, "poisonDecay": 1, "rewardChoices": 3 },
 
   "weapons": [
     { "id": "dagger", "name": "短剣", "atk": 3, "defMod": 0, "bonusPoison": 1,
@@ -76,9 +78,9 @@
       "desc": "最大HP+20。",
       "statMods": { "maxHp": 20 }, "flags": [], "hooks": [] },
     { "id": "regen", "name": "再生", "archetype": "sustain",
-      "desc": "毎ターンHP+1。",
+      "desc": "戦闘中、毎ターンHP+1（敵がいない間は回復しない）。",
       "statMods": {}, "flags": [],
-      "hooks": [{ "trigger": "onTurnStart", "effect": "healFlat", "params": { "amount": 1 } }] },
+      "hooks": [{ "trigger": "onTurnStart", "effect": "healFlat", "params": { "amount": 1, "combatOnly": true } }] },
 
     { "id": "guard", "name": "守りの心得", "archetype": "utility",
       "desc": "防御+2、攻撃+1。地味だが腐らない。",
@@ -97,6 +99,7 @@
       "note": "鈍重。1ターンおきに動く。距離を取れば安全。" },
     { "id": "bat", "name": "コウモリ", "symbol": "b", "hp": 6, "atk": 3, "defense": 0,
       "behavior": "erratic", "sight": 8, "gold": 3, "tier": 2, "telegraph": false, "spawnCap": null,
+      "params": { "approachChance": 0.6, "steps": 2 },
       "note": "不規則に高速移動。読みにくいが脆い。" },
     { "id": "archer", "name": "射手", "symbol": "a", "hp": 8, "atk": 3, "defense": 0,
       "behavior": "ranged", "sight": 5, "gold": 4, "tier": 2, "telegraph": true, "spawnCap": null,
@@ -106,10 +109,16 @@
       "note": "高耐久・高火力だが鈍重。釣って毒で溶かす。" },
     { "id": "healer", "name": "治癒師", "symbol": "h", "hp": 12, "atk": 1, "defense": 0,
       "behavior": "support", "sight": 8, "gold": 5, "tier": 3, "telegraph": false, "spawnCap": 1,
+      "params": { "healAmount": 4 },
       "note": "味方を回復し逃げ回る。最優先で潰す。" },
     { "id": "boss", "name": "深淵の王", "symbol": "D", "hp": 78, "atk": 7, "defense": 2,
       "behavior": "boss", "sight": 8, "gold": 40, "tier": 99, "telegraph": true, "spawnCap": null,
-      "note": "フロア区切りのボス。予兆付き全体攻撃を読む。" }
+      "params": { "slamMult": 2.0, "slamRange": 3, "slamTriggerDist": 4, "slamChance": 0.5, "reinforceChance": 0.15 },
+      "note": "フロア区切りのボス。予兆付き全体攻撃(スラム)と増援。距離を取って予兆を回避。" },
+    { "id": "twin_beast", "name": "双牙の獣", "symbol": "M", "hp": 70, "atk": 9, "defense": 2,
+      "behavior": "boss_twin", "sight": 8, "gold": 40, "tier": 99, "telegraph": false, "spawnCap": null,
+      "params": { "doubleChance": 0.35 },
+      "note": "もう一体のボス。AoEは無いが猛追し、隣接で連撃する近接DPS型。削り合いを制する。" }
   ],
 
   "spawnTable": {

@@ -25,6 +25,49 @@ export function bar(frac: number, width = 28): string {
 export function pct(x: number): string {
   return (x * 100).toFixed(1).padStart(5) + "%";
 }
+
+// ---- 統計ヘルパ（区間・検定）。純関数（ゲーム挙動に無関係） ----
+/** 比率の Wilson 95%信頼区間 [lo, hi]。 */
+export function wilson(wins: number, n: number, z = 1.96): [number, number] {
+  if (n === 0) return [0, 0];
+  const p = wins / n;
+  const z2 = z * z;
+  const denom = 1 + z2 / n;
+  const center = p + z2 / (2 * n);
+  const margin = z * Math.sqrt((p * (1 - p) + z2 / (4 * n)) / n);
+  return [Math.max(0, (center - margin) / denom), Math.min(1, (center + margin) / denom)];
+}
+/** "44.3% [41.2–47.4]" 形式（点推定＋Wilson区間）。 */
+export function fmtRate(wins: number, n: number): string {
+  const p = n ? wins / n : 0;
+  const [lo, hi] = wilson(wins, n);
+  return `${(p * 100).toFixed(1)}% [${(lo * 100).toFixed(1)}–${(hi * 100).toFixed(1)}]`;
+}
+/** 標準正規 CDF（Abramowitz-Stegun 近似）。 */
+function normCdf(x: number): number {
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989423 * Math.exp((-x * x) / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return x >= 0 ? 1 - p : p;
+}
+/** 二群比率の z 検定（両側 p）。 */
+export function twoPropZ(w1: number, n1: number, w2: number, n2: number): { z: number; p: number } {
+  if (n1 === 0 || n2 === 0) return { z: 0, p: 1 };
+  const p1 = w1 / n1, p2 = w2 / n2;
+  const pPool = (w1 + w2) / (n1 + n2);
+  const se = Math.sqrt(pPool * (1 - pPool) * (1 / n1 + 1 / n2));
+  if (se === 0) return { z: 0, p: 1 };
+  const z = (p1 - p2) / se;
+  return { z, p: 2 * (1 - normCdf(Math.abs(z))) };
+}
+/** カイ二乗統計量と自由度（p は df 別の臨界値で判断：df=4→9.49, df=6→12.59 @0.05）。 */
+export function chiSquare(observed: number[], expected: number[]): { chi2: number; df: number } {
+  let chi2 = 0;
+  for (let i = 0; i < observed.length; i++) {
+    if (expected[i] > 0) chi2 += (observed[i] - expected[i]) ** 2 / expected[i];
+  }
+  return { chi2, df: Math.max(1, observed.length - 1) };
+}
 function mean(a: number[]): number {
   return a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
 }
@@ -57,7 +100,7 @@ export function fullReport(results: Result[], opts: { floors?: number; title?: s
   console.log("=".repeat(60));
 
   section("■ ラン完走率（クリア率） — 難易度の妥当性");
-  console.log(`  クリア : ${String(clears.length).padStart(4)}  ${bar(clearRate)} ${pct(clearRate)}`);
+  console.log(`  クリア : ${String(clears.length).padStart(4)}  ${bar(clearRate)} ${fmtRate(clears.length, n)}`);
   console.log(`  死亡   : ${String(deaths.length).padStart(4)}  ${bar(n ? deaths.length / n : 0)} ${pct(n ? deaths.length / n : 0)}`);
 
   section("■ 平均ラン時間（ターン数） — ペーシング");
@@ -155,10 +198,14 @@ export function fullReport(results: Result[], opts: { floors?: number; title?: s
         console.log(`  ${combo.name.padEnd(18)}${combo.archetype.padEnd(8)}${"0".padStart(5)}${"--".padStart(10)}${"--".padStart(9)}`);
         continue;
       }
-      const wr = runs.filter((r) => r.result === "win").length / runs.length;
+      const cw = runs.filter((r) => r.result === "win").length;
+      const wr = cw / runs.length;
       const lift = (wr - clearRate) * 100;
       const liftStr = (lift >= 0 ? "+" : "") + lift.toFixed(1) + "pt";
-      console.log(`  ${combo.name.padEnd(18)}${combo.archetype.padEnd(8)}${String(runs.length).padStart(5)}${pct(wr).padStart(10)}${liftStr.padStart(9)}`);
+      const [lo, hi] = wilson(cw, runs.length);
+      const ci = `[${(lo * 100).toFixed(0)}–${(hi * 100).toFixed(0)}]`;
+      const warn = runs.length < 30 ? " ⚠n<30(参考)" : "";
+      console.log(`  ${combo.name.padEnd(18)}${combo.archetype.padEnd(8)}${String(runs.length).padStart(5)}${pct(wr).padStart(10)}${liftStr.padStart(9)}  ${ci}${warn}`);
     }
   }
 

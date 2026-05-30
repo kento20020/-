@@ -5,9 +5,10 @@
 import { GameRNG } from "./rng.ts";
 import * as world from "./world.ts";
 import {
-  WEAPONS, RELICS, ENEMIES, SPAWN_TABLE, ARCHETYPES, RUN, PLAYER,
+  WEAPONS, RELICS, ENEMIES, SPAWN_TABLE, ARCHETYPES, RUN, PLAYER, TUNING,
   type Weapon, type Relic, type EnemyType,
 } from "./data.ts";
+import { BEHAVIORS } from "./behaviors.ts";
 
 export interface DamageContext {
   amount: number;
@@ -135,11 +136,13 @@ export class Game {
     const spots = fc.length > 0 ? fc : cells;
 
     if (isBoss) {
-      this.enemies.push(new Enemy(ENEMIES.get("boss")!, exx, exy));
+      const bossId = this.rng.spawn.choice(RUN.bossPool);
+      const boss = ENEMIES.get(bossId)!;
+      this.enemies.push(new Enemy(boss, exx, exy));
       for (const [cx, cy] of spots.slice(0, 2)) {
         this.enemies.push(new Enemy(ENEMIES.get("rat")!, cx, cy));
       }
-      this.msg("最深部。深淵の王が待ち構えている。");
+      this.msg(`最深部。${boss.name}が待ち構えている。`);
     } else {
       const n = 4 + this.floorNum;
       const tier = Math.min(4, this.floorNum);
@@ -209,9 +212,9 @@ export class Game {
         if (r.onKill) r.onKill(this, this.player, enemy);
       }
     }
-    if (enemy.etype.id === "boss") {
+    if (enemy.etype.behavior.startsWith("boss")) {
       this.state = "win";
-      this.msg("深淵の王を討ち取った！ 生還だ。");
+      this.msg(`${enemy.name}を討ち取った！ 生還だ。`);
     }
   }
 
@@ -234,21 +237,21 @@ export class Game {
 
   // ----- 状態異常 -----
   private tickPoison(): void {
-    const amp = this.player.hasFlag("poison_amp") ? 2 : 1;
+    const amp = this.player.hasFlag("poison_amp") ? TUNING.poisonAmp : 1;
     for (const e of [...this.enemies]) {
       if (e.alive && e.poison > 0) {
         this.applyDamage(e, e.poison * amp, this.player, "poison");
-        e.poison -= 1;
+        e.poison -= TUNING.poisonDecay;
       }
     }
     if (this.player.poison > 0) {
       this.applyDamage(this.player, this.player.poison, null, "poison");
-      this.player.poison -= 1;
+      this.player.poison -= TUNING.poisonDecay;
     }
   }
 
   // ----- 敵AI -----
-  private stepToward(e: Enemy, tx: number, ty: number, away = false): void {
+  stepToward(e: Enemy, tx: number, ty: number, away = false): void {
     let best: [number, number] | null = null;
     let bestd: number | null = null;
     for (const [dx, dy] of DIRS4) {
@@ -266,17 +269,17 @@ export class Game {
     }
   }
 
-  private adjacentToPlayer(e: Enemy): boolean {
+  adjacentToPlayer(e: Enemy): boolean {
     return Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) === 1;
   }
 
-  private enemyAttackPlayer(e: Enemy, mult = 1.0, source = "attack"): void {
+  enemyAttackPlayer(e: Enemy, mult = 1.0, source = "attack"): void {
     const dmg = Math.max(1, Math.trunc(e.attack * mult) - this.player.defense);
     this.msg(`${e.name}の攻撃！ ${dmg}ダメージ`);
     this.applyDamage(this.player, dmg, e, source);
   }
 
-  private lineClear(x0: number, y0: number, x1: number, y1: number): boolean {
+  lineClear(x0: number, y0: number, x1: number, y1: number): boolean {
     if (x0 === x1) {
       const step = y1 > y0 ? 1 : -1;
       for (let y = y0 + step; y !== y1; y += step) if (!this.level.isFloor(x0, y)) return false;
@@ -291,92 +294,12 @@ export class Game {
   }
 
   private actEnemy(e: Enemy): void {
-    const p = this.player;
-    const b = e.behavior;
-    if (b === "melee") {
-      if (this.adjacentToPlayer(e)) this.enemyAttackPlayer(e);
-      else this.stepToward(e, p.x, p.y);
-    } else if (b === "slow") {
-      e.cooldown = (e.cooldown + 1) % 2;
-      if (e.cooldown === 0) return;
-      if (this.adjacentToPlayer(e)) this.enemyAttackPlayer(e);
-      else this.stepToward(e, p.x, p.y);
-    } else if (b === "erratic") {
-      for (let i = 0; i < 2; i++) {
-        if (this.adjacentToPlayer(e)) {
-          this.enemyAttackPlayer(e);
-          return;
-        }
-        if (this.rng.ai.random() < 0.6) {
-          this.stepToward(e, p.x, p.y);
-        } else {
-          const [dx, dy] = this.rng.ai.choice(DIRS4);
-          if (this.level.isFloor(e.x + dx, e.y + dy) && !this.occupied(e.x + dx, e.y + dy)) {
-            e.x += dx;
-            e.y += dy;
-          }
-        }
-      }
-    } else if (b === "ranged") {
-      if (e.telegraph) {
-        e.telegraph = null;
-        if ((e.x === p.x || e.y === p.y) && this.lineClear(e.x, e.y, p.x, p.y)) {
-          this.msg(`${e.name}が矢を放った！`);
-          this.enemyAttackPlayer(e);
-        } else {
-          this.msg(`${e.name}の矢は外れた（射線が切れた）。`);
-        }
-      } else if (
-        (e.x === p.x || e.y === p.y) && this.lineClear(e.x, e.y, p.x, p.y)
-        && Math.abs(e.x - p.x) + Math.abs(e.y - p.y) <= e.etype.sight
-      ) {
-        e.telegraph = "shot";
-        this.msg(`${e.name}が狙いを定めている…（直線から外れて回避可）`);
-      } else {
-        this.stepToward(e, p.x, p.y);
-      }
-    } else if (b === "support") {
-      const wounded = this.enemiesNear(e.x, e.y, 1).filter((a) => a.alive && a.hp < a.maxHp);
-      if (wounded.length > 0) {
-        const t = wounded[0];
-        t.heal(4);
-        this.msg(`${e.name}が${t.name}を回復した。`);
-      } else if (this.adjacentToPlayer(e)) {
-        this.enemyAttackPlayer(e);
-      } else {
-        this.stepToward(e, p.x, p.y, true);
-      }
-    } else if (b === "boss") {
-      if (e.telegraph) {
-        e.telegraph = null;
-        if (Math.abs(e.x - p.x) <= 3 && Math.abs(e.y - p.y) <= 3) {
-          this.msg(`${e.name}の大振り一撃！`);
-          this.enemyAttackPlayer(e, 2.0, "boss");
-        } else {
-          this.msg(`${e.name}のスラムは空を切った。`);
-        }
-      } else {
-        const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
-        if (dist <= 4 && this.rng.ai.random() < 0.5) {
-          e.telegraph = "slam";
-          this.msg(`${e.name}が力を溜めている…（3マス以上離れて回避）`);
-        } else if (this.adjacentToPlayer(e)) {
-          this.enemyAttackPlayer(e);
-        } else {
-          this.stepToward(e, p.x, p.y);
-          if (this.rng.ai.random() < 0.15) {
-            const spot = this.freeNear(e.x, e.y);
-            if (spot) {
-              this.enemies.push(new Enemy(ENEMIES.get("rat")!, spot[0], spot[1]));
-              this.msg(`${e.name}が増援を呼んだ！`);
-            }
-          }
-        }
-      }
-    }
+    // 敵AIは behaviors.ts のレジストリへ委譲（EFFECTS と同じ拡張パターン）。
+    // 新しい敵AIは BEHAVIORS に1個足すだけ＝ここは無編集。
+    BEHAVIORS[e.behavior]?.(this, e);
   }
 
-  private freeNear(x: number, y: number): [number, number] | null {
+  freeNear(x: number, y: number): [number, number] | null {
     const dirs: ReadonlyArray<[number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]];
     for (const [dx, dy] of dirs) {
       const nx = x + dx, ny = y + dy;
@@ -386,6 +309,11 @@ export class Game {
   }
 
   // ----- 1ターン進行 -----
+  /** behaviors（ボス増援など）から使う公開ヘルパ：指定IDの敵を座標に追加。 */
+  spawnAt(id: string, x: number, y: number): void {
+    this.enemies.push(new Enemy(ENEMIES.get(id)!, x, y));
+  }
+
   private worldTick(): void {
     this.tickPoison();
     if (this.state !== "playing") return;
@@ -471,7 +399,7 @@ export class Game {
     const owned = new Set(this.player.relics.map((r) => r.id));
     const pool = [...RELICS.keys()].filter((rid) => !owned.has(rid));
     this.rng.loot.shuffle(pool);
-    const choices = pool.length >= 3 ? pool.slice(0, 3) : pool;
+    const choices = pool.length >= TUNING.rewardChoices ? pool.slice(0, TUNING.rewardChoices) : pool;
     this.relicsOfferedTotal.push(...choices);
     return choices;
   }
@@ -484,7 +412,13 @@ export class Game {
       this.relicsTaken.push(rid);
       this.msg(`レリック獲得：${RELICS.get(rid)!.name}`);
     }
-    this.player.heal(Math.trunc(this.player.maxHp * RUN.floorClearHeal));
+    // 踏破回復は2段階：たまに「休憩」で大回復、通常は小回復（rng.loot で決定）。
+    if (this.rng.loot.random() < RUN.restChance) {
+      this.player.heal(Math.trunc(this.player.maxHp * RUN.restHeal));
+      this.msg("休憩した。大きく回復した。");
+    } else {
+      this.player.heal(Math.trunc(this.player.maxHp * RUN.floorClearHeal));
+    }
     this.offered = [];
     this.state = "playing";
     this.buildFloor();
