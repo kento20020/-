@@ -94,7 +94,9 @@ const EFFECTS: Record<string, EffectFactory> = {
   atkBuff: (p) => (_g, owner) => {
     owner.attack += p.amount;
   },
-  healFlat: (p) => (_g, owner) => {
+  healFlat: (p) => (g, owner) => {
+    // combatOnly: フロアに生存敵がいるターンのみ回復（戦闘外でのうろつき全回復を封じる）。
+    if (p.combatOnly && !g.enemies.some((e: { alive: boolean }) => e.alive)) return;
     owner.heal(p.amount);
   },
   spreadPoison: (p) => (g, _o, victim) => {

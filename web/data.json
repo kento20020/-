@@ -78,9 +78,9 @@
       "desc": "最大HP+20。",
       "statMods": { "maxHp": 20 }, "flags": [], "hooks": [] },
     { "id": "regen", "name": "再生", "archetype": "sustain",
-      "desc": "毎ターンHP+1。",
+      "desc": "戦闘中、毎ターンHP+1（敵がいない間は回復しない）。",
       "statMods": {}, "flags": [],
-      "hooks": [{ "trigger": "onTurnStart", "effect": "healFlat", "params": { "amount": 1 } }] },
+      "hooks": [{ "trigger": "onTurnStart", "effect": "healFlat", "params": { "amount": 1, "combatOnly": true } }] },
 
     { "id": "guard", "name": "守りの心得", "archetype": "utility",
       "desc": "防御+2、攻撃+1。地味だが腐らない。",
