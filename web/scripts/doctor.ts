@@ -33,7 +33,7 @@ function checkData(): void {
   const expect: Array<[string, number]> = [
     ["weapons", 3],
     ["relics", 17],
-    ["enemies", 7],
+    ["enemies", 8],
     ["archetypes", 5],
   ];
   for (const [k, n] of expect) {
@@ -50,7 +50,7 @@ function checkData(): void {
     for (const h of r.hooks ?? [])
       for (const [pk, pv] of Object.entries(h.params ?? {}))
         if (pv == null) fail(`レリック ${r.id} の効果パラメータ ${pk} が null`);
-  if (problems.length === 0) ok("data.json 整合（武器3・レリック17・敵7・系統5・コンボ定義あり・null無し）");
+  if (problems.length === 0) ok("data.json 整合（武器3・レリック17・敵8・系統5・コンボ定義あり・null無し）");
 }
 
 // ---- 2) package.json scripts ----

@@ -7,7 +7,7 @@
     "note_flags": "flags はフック以外の参照目印。poison_amp は毒tickの2倍化(engine._tick_poison)、lowhp は情報用。"
   },
 
-  "run": { "floors": 5, "bossFloor": 5, "floorClearHeal": 0.16 },
+  "run": { "floors": 5, "bossFloor": 5, "floorClearHeal": 0.16, "restHeal": 0.34, "restChance": 0.25, "bossPool": ["boss", "twin_beast"] },
 
   "player": { "hp": 44, "atk": 2 },
 
@@ -109,7 +109,10 @@
       "note": "味方を回復し逃げ回る。最優先で潰す。" },
     { "id": "boss", "name": "深淵の王", "symbol": "D", "hp": 78, "atk": 7, "defense": 2,
       "behavior": "boss", "sight": 8, "gold": 40, "tier": 99, "telegraph": true, "spawnCap": null,
-      "note": "フロア区切りのボス。予兆付き全体攻撃を読む。" }
+      "note": "フロア区切りのボス。予兆付き全体攻撃(スラム)と増援。距離を取って予兆を回避。" },
+    { "id": "twin_beast", "name": "双牙の獣", "symbol": "M", "hp": 70, "atk": 9, "defense": 2,
+      "behavior": "boss_twin", "sight": 8, "gold": 40, "tier": 99, "telegraph": false, "spawnCap": null,
+      "note": "もう一体のボス。AoEは無いが猛追し、隣接で連撃する近接DPS型。削り合いを制する。" }
   ],
 
   "spawnTable": {

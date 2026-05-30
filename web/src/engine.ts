@@ -135,11 +135,13 @@ export class Game {
     const spots = fc.length > 0 ? fc : cells;
 
     if (isBoss) {
-      this.enemies.push(new Enemy(ENEMIES.get("boss")!, exx, exy));
+      const bossId = this.rng.spawn.choice(RUN.bossPool);
+      const boss = ENEMIES.get(bossId)!;
+      this.enemies.push(new Enemy(boss, exx, exy));
       for (const [cx, cy] of spots.slice(0, 2)) {
         this.enemies.push(new Enemy(ENEMIES.get("rat")!, cx, cy));
       }
-      this.msg("最深部。深淵の王が待ち構えている。");
+      this.msg(`最深部。${boss.name}が待ち構えている。`);
     } else {
       const n = 4 + this.floorNum;
       const tier = Math.min(4, this.floorNum);
@@ -209,9 +211,9 @@ export class Game {
         if (r.onKill) r.onKill(this, this.player, enemy);
       }
     }
-    if (enemy.etype.id === "boss") {
+    if (enemy.etype.behavior.startsWith("boss")) {
       this.state = "win";
-      this.msg("深淵の王を討ち取った！ 生還だ。");
+      this.msg(`${enemy.name}を討ち取った！ 生還だ。`);
     }
   }
 
@@ -373,6 +375,17 @@ export class Game {
           }
         }
       }
+    } else if (b === "boss_twin") {
+      // 近接DPS型ボス：AoE/召喚なし。猛追し、隣接で連撃（35%で追撃）。距離管理ではなく削り合い。
+      if (this.adjacentToPlayer(e)) {
+        this.enemyAttackPlayer(e);
+        if (this.rng.ai.random() < 0.35 && this.state === "playing") {
+          this.msg(`${e.name}の追撃！`);
+          this.enemyAttackPlayer(e);
+        }
+      } else {
+        this.stepToward(e, p.x, p.y);
+      }
     }
   }
 
@@ -484,7 +497,13 @@ export class Game {
       this.relicsTaken.push(rid);
       this.msg(`レリック獲得：${RELICS.get(rid)!.name}`);
     }
-    this.player.heal(Math.trunc(this.player.maxHp * RUN.floorClearHeal));
+    // 踏破回復は2段階：たまに「休憩」で大回復、通常は小回復（rng.loot で決定）。
+    if (this.rng.loot.random() < RUN.restChance) {
+      this.player.heal(Math.trunc(this.player.maxHp * RUN.restHeal));
+      this.msg("休憩した。大きく回復した。");
+    } else {
+      this.player.heal(Math.trunc(this.player.maxHp * RUN.floorClearHeal));
+    }
     this.offered = [];
     this.state = "playing";
     this.buildFloor();

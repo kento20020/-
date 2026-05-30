@@ -50,7 +50,8 @@ export function renderTopbar(game: Game): { floor: string; turn: string; seed: s
 const PLAYER_ICON = "🧙";
 const EXIT_ICON = "🪜";
 const ENEMY_ICON: Record<string, string> = {
-  rat: "🐀", slime: "🟢", bat: "🦇", archer: "🏹", brute: "👹", healer: "🩺", boss: "👑",
+  rat: "🐀", slime: "🟢", bat: "🦇", archer: "🏹", brute: "👹", healer: "🩺",
+  boss: "👑", twin_beast: "🐺",
 };
 
 export function renderBoard(game: Game): { html: string; cols: number } {
@@ -86,7 +87,7 @@ export function renderBoard(game: Game): { html: string; cols: number } {
 }
 
 export const LEGEND_HTML =
-  `<b>🧙 あなた</b>　｜　敵: 🐀ネズミ 🟢スライム 🦇コウモリ 🏹射手 👹大兵 🩺治癒師 👑ボス　｜　🪜 出口　｜　` +
+  `<b>🧙 あなた</b>　｜　敵: 🐀ネズミ 🟢スライム 🦇コウモリ 🏹射手 👹大兵 🩺治癒師　｜　👑/🐺 ボス　｜　🪜 出口　｜　` +
   `<span class="c-danger">&nbsp;赤マス&nbsp;</span> 予兆＝次の攻撃範囲（外へ動けば回避）。マスにカーソルで詳細`;
 
 export function renderHud(game: Game): string {

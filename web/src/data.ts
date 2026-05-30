@@ -157,7 +157,14 @@ export const SPAWN_TABLE: Record<number, Array<[string, number]>> = Object.fromE
   ),
 );
 export const ARCHETYPES: string[] = [...(raw.archetypes as string[])];
-export const RUN = raw.run as { floors: number; bossFloor: number; floorClearHeal: number };
+export const RUN = raw.run as {
+  floors: number;
+  bossFloor: number;
+  floorClearHeal: number;
+  restHeal: number;
+  restChance: number;
+  bossPool: string[];
+};
 export const PLAYER = raw.player as { hp: number; atk: number };
 export const SYNERGY_COMBOS = ((raw as any).synergyCombos ?? []) as Array<{
   name: string;
