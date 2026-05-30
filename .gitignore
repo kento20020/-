@@ -1,2 +1,12 @@
+# Python（撤去予定の残骸）
 __pycache__/
 *.pyc
+
+# Node / Web
+web/node_modules/
+web/dist/
+node_modules/
+
+# ローカルのプレイデータ書き出し等
+runs/
+*.local.json

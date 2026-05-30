@@ -7,13 +7,26 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: "3.11"
-      # 依存ゼロ。標準ライブラリだけでテストとKPIスモークを回す。
-      - name: 回帰テスト
-        run: python -m roguelike.tests
-      - name: KPIスモーク（停滞・致命的偏りの早期検知）
-        run: python -m roguelike sim -n 200
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      # CLAUDE.md / docs と実体の齟齬チェック（ドキュメントを現実と同期させる仕組み）
+      - name: 整合チェック（doctor）
+        run: npm run doctor
+      # 等価性/決定論リグレッション（RNG bit一致・result/trace 一致）
+      - name: TS テスト
+        run: node --experimental-transform-types --test "tests/**/*.test.ts"
+      # 分布チェック（健全帯・5系統勝利・停滞0・死因偏重なし）
+      - name: KPI スモーク
+        run: node --experimental-transform-types scripts/sim.ts --n 200 --assert-kpi
+      # 本番ビルドが通ること
+      - name: ビルド
+        run: npm run build
