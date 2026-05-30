@@ -1,0 +1,19 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # 依存ゼロ。標準ライブラリだけでテストとKPIスモークを回す。
+      - name: 回帰テスト
+        run: python -m roguelike.tests
+      - name: KPIスモーク（停滞・致命的偏りの早期検知）
+        run: python -m roguelike sim -n 200
