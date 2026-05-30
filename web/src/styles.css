@@ -19,7 +19,7 @@
   --hp-hi: #57e08a;
   --hp-mid: #ffd166;
   --hp-lo: #ff6b6b;
-  --cell: 20px;
+  --cell: 22px;
   --mono: ui-monospace, "Cascadia Mono", "Consolas", "SFMono-Regular", monospace;
 }
 
@@ -72,10 +72,9 @@ body {
 #board-wrap { overflow: auto; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 #board {
   display: grid;
-  font-family: var(--mono);
+  gap: 1px;                         /* 1pxの隙間でタイルがマス目として読める */
   font-size: 15px;
-  line-height: var(--cell);
-  background: var(--floor);
+  background: var(--bg);            /* 隙間の色＝盤面の地。床/壁との段差で地形が分かる */
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 6px;
@@ -84,17 +83,19 @@ body {
 #board .cell {
   width: var(--cell);
   height: var(--cell);
-  text-align: center;
-  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
-.c-wall { color: var(--wall) !important; }
-.c-floor { color: var(--floor-dot) !important; }
-.c-player { color: var(--player) !important; font-weight: 700; }
-.c-enemy { color: var(--enemy) !important; }
-.c-boss { color: var(--boss) !important; font-weight: 700; }
-.c-exit { color: var(--exit) !important; font-weight: 700; }
-.c-danger { background: var(--danger-bg); border-radius: 3px; }
-.c-telegraph { color: var(--telegraph) !important; font-weight: 700; }
+/* 背景は各タイルのクラスが持つ。#board .cell に背景を置くと詳細度で .c-wall 等を上書きし壁が消えるため置かない。 */
+.c-wall { background: var(--wall); }     /* 壁＝塗りつぶしブロック（地形が一目で分かる） */
+.c-floor { background: var(--floor); }
+.c-exit { background: var(--floor); }
+.c-enemy { background: var(--floor); cursor: help; }
+.c-player { background: var(--floor); box-shadow: inset 0 0 0 2px var(--player); border-radius: 5px; }  /* 自分＝緑枠 */
+.c-danger { background: var(--danger-bg); }   /* 予兆マス（床/敵/自分より後に定義＝赤を優先） */
+.c-telegraph { box-shadow: inset 0 0 0 2px var(--telegraph); border-radius: 5px; cursor: help; }  /* 攻撃を溜める敵に黄枠 */
 
 #legend { color: var(--muted); font-size: 12px; }
 #legend b { color: var(--text); }
