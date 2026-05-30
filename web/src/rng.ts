@@ -170,6 +170,12 @@ export class PyRandom {
       x[j] = tmp;
     }
   }
+
+  /** 内部状態を other からコピー（探索エージェントの分岐用・既存系列に無影響）。 */
+  copyFrom(other: PyRandom): void {
+    this.mt.set(other.mt);
+    this.mti = other.mti;
+  }
 }
 
 /** Python bisect.bisect_right(a, x, lo, hi)。 */
@@ -201,5 +207,16 @@ export class GameRNG {
     this.loot = new PyRandom(seed * 5 + 13);
     this.combat = new PyRandom(seed * 7 + 17);
     this.ai = new PyRandom(seed * 11 + 23);
+  }
+
+  /** 現在状態の複製（探索エージェントのロールアウト分岐用。既存挙動に無影響）。 */
+  clone(): GameRNG {
+    const c = new GameRNG(this.seed);
+    c.map.copyFrom(this.map);
+    c.spawn.copyFrom(this.spawn);
+    c.loot.copyFrom(this.loot);
+    c.combat.copyFrom(this.combat);
+    c.ai.copyFrom(this.ai);
+    return c;
   }
 }

@@ -41,6 +41,7 @@ Bot シミュレーションで KPI を計測して意思決定する。**体感
 - `npm run sim`（`-- --n 1000 --assert-kpi` / `-- --compare-policies`）
 - `npm run report`（`-- --from <results.json> [--compare]`：人間プレイ分析）
 - `npm run gen-fixtures`（ゴールデン再生成）
+- 分析: `npm run ab`（A/B介入＝因果効果）／`npm run sweep`（ノブ感度）／`npm run ev`（解析EV）／`npm run search`（探索ceiling）／`npm run tune`（自動調整の提案値）。詳細は `docs/分析ツール.md`
 - `npm run doctor`（このCLAUDE.md・docsと実体の齟齬チェック）
 - `npm run check`（doctor + test + sim assert + build を一括）
 
