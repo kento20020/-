@@ -66,42 +66,67 @@ export interface EnemyType {
 // --- 効果レジストリ（data.py の EFFECTS と完全一致）。int() は Math.trunc。 ---
 type EffectFactory = (p: any) => (...args: any[]) => void;
 
+// 各効果は発動時にログ(g.msg)を出す＝プレイヤーに「効果が働いた」ことを見せる（§9 透明性）。
+// ログは trace/result に含まれないため golden は不変（挙動・RNG順・バランスは変わらない）。
+// 例外: 再生(healFlat)は毎ターン発動でログが洪水になるため出さない（HPバーで十分見える）。
 const EFFECTS: Record<string, EffectFactory> = {
-  applyPoison: (p) => (_g, _o, target, ctx: Ctx) => {
-    if (ctx.amount > 0) target.addPoison(p.amount);
+  applyPoison: (p) => (g, _o, target, ctx: Ctx) => {
+    if (ctx.amount > 0) {
+      target.addPoison(p.amount);
+      g.msg(`毒の刃：${target.name}に毒+${p.amount}`);
+    }
   },
-  bonusDmgVsPoisoned: (p) => (_g, _o, target, ctx: Ctx) => {
-    if (target.poison > 0) ctx.amount = Math.trunc(ctx.amount * p.ratio);
+  bonusDmgVsPoisoned: (p) => (g, _o, target, ctx: Ctx) => {
+    if (target.poison > 0) {
+      ctx.amount = Math.trunc(ctx.amount * p.ratio);
+      g.msg("腐食：毒の敵へダメージ増");
+    }
   },
-  berserkScale: (p) => (_g, owner, _t, ctx: Ctx) => {
+  berserkScale: (p) => (g, owner, _t, ctx: Ctx) => {
     const missing = 1.0 - owner.hp / Math.max(1, owner.maxHp);
-    ctx.amount += Math.trunc(missing * p.max);
+    const bonus = Math.trunc(missing * p.max);
+    ctx.amount += bonus;
+    if (bonus > 0) g.msg(`狂戦士の怒り：火力+${bonus}`);
   },
   extraAttack: (p) => (g, _o, _t, ctx: Ctx) => {
-    if (g.rng.combat.random() < p.chance) ctx.extraHits += 1;
+    if (g.rng.combat.random() < p.chance) {
+      ctx.extraHits += 1;
+      g.msg("双牙：追撃！");
+    }
   },
-  lifeSteal: (p) => (_g, owner, _t, ctx: Ctx) => {
-    owner.heal(Math.max(1, Math.trunc(ctx.amount * p.ratio)));
+  lifeSteal: (p) => (g, owner, _t, ctx: Ctx) => {
+    const healed = Math.max(1, Math.trunc(ctx.amount * p.ratio));
+    owner.heal(healed);
+    g.msg(`吸血：+${healed}回復`);
   },
   reflectRatio: (p) => (g, owner, attacker, ctx: Ctx) => {
     if (attacker != null && ctx.amount > 0) {
-      g.dealReflect(owner, attacker, Math.max(1, Math.trunc(ctx.amount * p.ratio)));
+      const refl = Math.max(1, Math.trunc(ctx.amount * p.ratio));
+      g.dealReflect(owner, attacker, refl);
+      g.msg(`棘の鎧：${refl}反射`);
     }
   },
   reflectFlat: (p) => (g, owner, attacker, _ctx: Ctx) => {
-    if (attacker != null) g.dealReflect(owner, attacker, p.amount);
+    if (attacker != null) {
+      g.dealReflect(owner, attacker, p.amount);
+      g.msg(`棘の外殻：${p.amount}反射`);
+    }
   },
-  atkBuff: (p) => (_g, owner) => {
+  atkBuff: (p) => (g, owner) => {
     owner.attack += p.amount;
+    g.msg(`報復の誓い：攻撃+${p.amount}`);
   },
   healFlat: (p) => (g, owner) => {
     // combatOnly: フロアに生存敵がいるターンのみ回復（戦闘外でのうろつき全回復を封じる）。
+    // 毎ターン発動のためログは出さない（HPバーで可視）。
     if (p.combatOnly && !g.enemies.some((e: { alive: boolean }) => e.alive)) return;
     owner.heal(p.amount);
   },
   spreadPoison: (p) => (g, _o, victim) => {
     if (victim.poison > 0) {
-      for (const e of g.enemiesNear(victim.x, victim.y, p.radius)) e.addPoison(p.amount);
+      const near = g.enemiesNear(victim.x, victim.y, p.radius);
+      for (const e of near) e.addPoison(p.amount);
+      if (near.length > 0) g.msg(`疫病：周囲${near.length}体へ毒+${p.amount}`);
     }
   },
 };
