@@ -8,11 +8,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
+from pathlib import Path
 
 from .engine import Game
-from . import ui, simulate
+from . import ui, simulate, data
 
 
 def cmd_play(args):
@@ -59,6 +61,28 @@ def cmd_sim(args):
     simulate.report(results, args.floors)
 
 
+def cmd_export_fixture(args):
+    """TS 等価性検証用のゴールデンフィクスチャを書き出す（§24）。"""
+    from . import equivalence as eq
+    seeds = [1, 2, 7, 42, 123, 777, 2000, 2001, 2002, 2003, 2004, 2005]
+    weapons = list(data.WEAPONS)
+    builds = list(data.ARCHETYPES)
+    traces = [(123, "sword", "power"), (2000, "dagger", "poison"),
+              (2001, "hammer", "thorns"), (7, "sword", "sustain"),
+              (42, "dagger", "utility"), (2005, "hammer", "power")]
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "rng_fixture.json").write_text(
+        json.dumps(eq.rng_fixture()), encoding="utf-8")
+    grid = eq.result_grid(seeds, weapons, builds)
+    (out / "golden_results.json").write_text(
+        json.dumps(grid, ensure_ascii=False), encoding="utf-8")
+    trace_data = {f"{s}|{w}|{b}": eq.traced_run(s, w, b) for (s, w, b) in traces}
+    (out / "golden_trace.json").write_text(
+        json.dumps(trace_data, ensure_ascii=False), encoding="utf-8")
+    print(f"wrote rng_fixture + {len(grid)} result rows + {len(trace_data)} traces to {out}")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="roguelike", description="ローグライト MVP")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -85,6 +109,10 @@ def main(argv=None):
     ps.add_argument("-f", "--floors", type=int, default=5)
     ps.add_argument("-s", "--seed", type=int, default=1000)
     ps.set_defaults(func=cmd_sim)
+
+    pf = sub.add_parser("export-fixture", help="TS等価性検証用ゴールデンの書き出し")
+    pf.add_argument("--out", default="web/fixtures", help="出力先ディレクトリ")
+    pf.set_defaults(func=cmd_export_fixture)
 
     args = ap.parse_args(argv)
     args.func(args)

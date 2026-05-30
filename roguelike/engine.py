@@ -45,7 +45,8 @@ class Entity:
 
 class Player(Entity):
     def __init__(self, x, y, weapon: data.Weapon):
-        super().__init__("勇者", "@", x, y, hp=46, attack=2, defense=0)
+        super().__init__("勇者", "@", x, y,
+                         hp=data.PLAYER["hp"], attack=data.PLAYER["atk"], defense=0)
         self.is_player = True
         self.weapon = weapon
         self.relics: list[data.Relic] = []
@@ -83,10 +84,10 @@ class Enemy(Entity):
 
 class Game:
     def __init__(self, seed: int, weapon_id: str = "sword",
-                 num_floors: int = 5, starting_relics=None):
+                 num_floors: int | None = None, starting_relics=None):
         self.rng = GameRNG(seed)
         self.seed = seed
-        self.num_floors = num_floors
+        self.num_floors = num_floors if num_floors is not None else data.RUN["floors"]
         self.floor_num = 0
         self.turn = 0
         self.kills = 0
@@ -139,7 +140,8 @@ class Game:
             weights = [t[1] for t in table]
             # 制約付き生成：治癒師など「対処に手間取る敵」が群れると
             # 退屈な停滞を生むため、1フロアあたりの上限を設ける（§4.1）。
-            caps = {"healer": 1, "brute": 2}
+            caps = {eid: et.spawn_cap for eid, et in data.ENEMIES.items()
+                    if et.spawn_cap is not None}
             counts: dict[str, int] = {}
             for c in spots[:n]:
                 for _try in range(6):
@@ -416,7 +418,7 @@ class Game:
             self.relics_taken.append(rid)
             self.msg(f"レリック獲得：{data.RELICS[rid].name}")
         # フロア踏破は小休止：最大HPの22%回復（連続事故の緩和：§7）
-        self.player.heal(int(self.player.max_hp * 0.22))
+        self.player.heal(int(self.player.max_hp * data.RUN["floorClearHeal"]))
         self.offered = []
         self.state = "playing"
         self._build_floor()

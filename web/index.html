@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>深淵ローグライト</title>
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar">
+        <span id="tb-floor">F-/-</span>
+        <span class="sep">·</span>
+        <span id="tb-turn">0手</span>
+        <span class="sep">·</span>
+        <span id="tb-seed">seed: -</span>
+        <span class="grow"></span>
+        <button id="tb-new" type="button">新しい挑戦</button>
+        <button id="tb-stats" type="button">戦績</button>
+      </header>
+
+      <main id="main">
+        <section id="board-wrap">
+          <div id="board" aria-label="ダンジョン盤面"></div>
+          <div id="legend"></div>
+        </section>
+        <aside id="sidebar">
+          <div id="hud"></div>
+          <div id="build"></div>
+          <div id="preview"></div>
+        </aside>
+      </main>
+
+      <footer id="log" aria-label="ログ"></footer>
+    </div>
+
+    <div id="overlay" class="hidden" aria-live="polite"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

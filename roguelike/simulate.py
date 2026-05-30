@@ -133,6 +133,37 @@ def report(results, num_floors):
             flag = "  ← 過小評価/強い?"
         print(f"  {rel.name:<12s}{rel.archetype:<8s}{off:5d}{tk:5d}{pct(pick):>9s}{pct(wr):>10s}{flag}")
 
+    section("■ シナジーコンボ別クリア率 — 「組み合わせが報われるか」")
+    print(f"  基準（全体クリア率）= {pct(clear_rate)}")
+    print(f"  {'コンボ':<18s}{'系統':<8s}{'成立':>5s}{'クリア率':>9s}{'対基準':>9s}")
+    for combo in data.SYNERGY_COMBOS:
+        need = set(combo["relics"])
+        runs = [r for r in results if need <= set(r["relics_taken"])]
+        if not runs:
+            print(f"  {combo['name']:<18s}{combo['archetype']:<8s}{0:5d}{'--':>10s}{'--':>9s}")
+            continue
+        wr = sum(1 for r in runs if r["result"] == "win") / len(runs)
+        lift = wr - clear_rate
+        print(f"  {combo['name']:<18s}{combo['archetype']:<8s}{len(runs):5d}"
+              f"{pct(wr):>10s}{lift*100:>+8.1f}pt")
+
+    section("■ 相性の良いレリック2枚組 — 共起トップ（n>=20）")
+    from itertools import combinations
+    pair_tot = Counter()
+    pair_win = Counter()
+    for r in results:
+        taken = sorted(set(r["relics_taken"]))
+        for a, b in combinations(taken, 2):
+            pair_tot[(a, b)] += 1
+            if r["result"] == "win":
+                pair_win[(a, b)] += 1
+    pair_rows = [(pair_win[p] / t, t, p) for p, t in pair_tot.items() if t >= 20]
+    pair_rows.sort(reverse=True)
+    print(f"  {'レリックA + レリックB':<26s}{'回数':>5s}{'クリア率':>9s}")
+    for wr, tot, (a, b) in pair_rows[:12]:
+        name = f"{data.RELICS[a].name} + {data.RELICS[b].name}"
+        print(f"  {name:<26s}{tot:5d}{pct(wr):>10s}")
+
     section("■ 総括（自動診断）")
     diag = []
     if clear_rate < 0.15:

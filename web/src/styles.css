@@ -1,0 +1,190 @@
+/* 抽象テーマ（CSS変数）。テーマ決定後はこの :root を差し替えるだけで全適用できる（§23）。 */
+:root {
+  --bg: #0e1014;
+  --panel: #161a20;
+  --panel-2: #1d2430;
+  --line: #2a323d;
+  --text: #d7dee7;
+  --muted: #8a94a3;
+  --accent: #6cc6ff;
+  --wall: #3a434f;
+  --floor: #11151b;
+  --floor-dot: #2a323d;
+  --player: #57e08a;
+  --enemy: #ff6b6b;
+  --boss: #d78bff;
+  --exit: #54d6e0;
+  --danger-bg: #5a1f24;
+  --telegraph: #ffd166;
+  --hp-hi: #57e08a;
+  --hp-mid: #ffd166;
+  --hp-lo: #ff6b6b;
+  --cell: 20px;
+  --mono: ui-monospace, "Cascadia Mono", "Consolas", "SFMono-Regular", monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 system-ui, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  overflow: hidden;
+}
+
+#app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100vh;
+}
+
+/* ---- トップバー ---- */
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+#topbar .sep { color: var(--muted); }
+#topbar .grow { flex: 1; }
+#topbar button {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+#topbar button:hover { border-color: var(--accent); }
+#tb-seed { color: var(--muted); }
+
+/* ---- メイン（盤面 + サイドバー） ---- */
+#main {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 12px;
+  padding: 12px;
+  min-height: 0;
+}
+#board-wrap { overflow: auto; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+#board {
+  display: grid;
+  font-family: var(--mono);
+  font-size: 15px;
+  line-height: var(--cell);
+  background: var(--floor);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px;
+  user-select: none;
+}
+#board .cell {
+  width: var(--cell);
+  height: var(--cell);
+  text-align: center;
+  color: var(--muted);
+}
+.c-wall { color: var(--wall) !important; }
+.c-floor { color: var(--floor-dot) !important; }
+.c-player { color: var(--player) !important; font-weight: 700; }
+.c-enemy { color: var(--enemy) !important; }
+.c-boss { color: var(--boss) !important; font-weight: 700; }
+.c-exit { color: var(--exit) !important; font-weight: 700; }
+.c-danger { background: var(--danger-bg); border-radius: 3px; }
+.c-telegraph { color: var(--telegraph) !important; font-weight: 700; }
+
+#legend { color: var(--muted); font-size: 12px; }
+#legend b { color: var(--text); }
+
+/* ---- サイドバー ---- */
+#sidebar { display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow: auto; }
+#sidebar > div { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.hud-line { display: flex; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
+.hud-line + .hud-line { margin-top: 4px; }
+.hpbar { height: 12px; background: var(--panel-2); border-radius: 6px; overflow: hidden; margin: 6px 0; }
+.hpbar > i { display: block; height: 100%; background: var(--hp-hi); transition: width .12s; }
+.section-title { color: var(--muted); font-size: 12px; margin-bottom: 6px; letter-spacing: .04em; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: help;
+}
+.chip[data-arch="power"] { border-color: #e8845a; }
+.chip[data-arch="poison"] { border-color: #8bd450; }
+.chip[data-arch="thorns"] { border-color: #6ca0ff; }
+.chip[data-arch="sustain"] { border-color: #ff9bd0; }
+.chip[data-arch="utility"] { border-color: #b0b8c4; }
+.preview-row { display: flex; justify-content: space-between; color: var(--muted); }
+.preview-row b { color: var(--text); }
+
+/* ---- ログ ---- */
+#log {
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  padding: 8px 14px;
+  height: 96px;
+  overflow: auto;
+  font-size: 13px;
+}
+#log .l { color: var(--muted); }
+#log .l:last-child { color: var(--text); }
+
+/* ---- オーバーレイ（報酬3択 / 死亡 / 開始 / 戦績） ---- */
+#overlay {
+  position: fixed; inset: 0;
+  background: rgba(6, 8, 11, .72);
+  display: grid; place-items: center;
+  padding: 20px;
+  z-index: 10;
+}
+#overlay.hidden { display: none; }
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px 22px;
+  max-width: 760px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+.modal h2 { margin: 0 0 4px; }
+.modal p.sub { margin: 0 0 16px; color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.card {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  transition: border-color .1s, transform .05s;
+}
+.card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.card .k { font-size: 12px; color: var(--muted); }
+.card .name { font-size: 16px; font-weight: 700; margin: 4px 0; }
+.card .desc { font-size: 13px; color: var(--muted); }
+.card .arch { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); margin-top: 8px; }
+.btnrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.btn {
+  background: var(--accent); color: #06222e; border: 0; border-radius: 8px;
+  padding: 9px 16px; font-weight: 700; cursor: pointer;
+}
+.btn.ghost { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); }
+.btn:hover { filter: brightness(1.08); }
+.stat-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-variant-numeric: tabular-nums; }
+.stat-grid .k { color: var(--muted); }
+.win { color: var(--player); }
+.lose { color: var(--enemy); }
+.weapons { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.seedrow { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.seedrow input { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 6px 8px; width: 160px; }
+.muted { color: var(--muted); }
+kbd { background: var(--panel-2); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 6px; font-family: var(--mono); font-size: 12px; }

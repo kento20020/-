@@ -1,0 +1,134 @@
+{
+  "_meta": {
+    "version": "1.0.0",
+    "source": "roguelike/data.json は両エンジン（Python / TypeScript）共通の数値真値。バランス変更は必ずここを編集し Python sim で再検証する（設計仕様書_Web版 §18・§20）。",
+    "hookEvents": ["onAttack", "onHitTaken", "onTurnStart", "onKill"],
+    "note_passive": "効果(effect)はエンジン側の効果レジストリの実装IDに対応。params は各効果が読む定数。",
+    "note_flags": "flags はフック以外の参照目印。poison_amp は毒tickの2倍化(engine._tick_poison)、lowhp は情報用。"
+  },
+
+  "run": { "floors": 5, "bossFloor": 5, "floorClearHeal": 0.16 },
+
+  "player": { "hp": 44, "atk": 2 },
+
+  "weapons": [
+    { "id": "dagger", "name": "短剣", "atk": 3, "defMod": 0, "bonusPoison": 1,
+      "note": "基礎火力は低いが、命中ごとに毒を上乗せ。状態異常型と好相性。" },
+    { "id": "sword", "name": "剣", "atk": 6, "defMod": 0, "bonusPoison": 0,
+      "note": "クセのない万能武器。どのビルドでも腐らない安定択。" },
+    { "id": "hammer", "name": "大槌", "atk": 7, "defMod": -3, "bonusPoison": 0,
+      "note": "高火力だが防御-2。被弾を踏み倒す火力型／防御反射型向け。" }
+  ],
+
+  "relics": [
+    { "id": "sharp", "name": "鋭利な刃", "archetype": "power",
+      "desc": "攻撃+3。シンプルな火力上乗せ。",
+      "statMods": { "atk": 3 }, "flags": [], "hooks": [] },
+    { "id": "giant", "name": "巨人の血", "archetype": "power",
+      "desc": "攻撃+6、最大HP-10。火力に全振りするハイリスク。",
+      "statMods": { "atk": 6, "maxHp": -10 }, "flags": [], "hooks": [] },
+    { "id": "berserk", "name": "狂戦士の怒り", "archetype": "power",
+      "desc": "HPが減るほど火力上昇（最大+13）。",
+      "statMods": {}, "flags": ["lowhp"],
+      "hooks": [{ "trigger": "onAttack", "effect": "berserkScale", "params": { "max": 13 } }] },
+    { "id": "twin", "name": "双牙", "archetype": "power",
+      "desc": "36%で攻撃が2回ヒット。",
+      "statMods": {}, "flags": [],
+      "hooks": [{ "trigger": "onAttack", "effect": "extraAttack", "params": { "chance": 0.36 } }] },
+
+    { "id": "venom", "name": "毒の刃", "archetype": "poison",
+      "desc": "攻撃時に毒5を付与。毒ビルドの起点。",
+      "statMods": {}, "flags": [],
+      "hooks": [{ "trigger": "onAttack", "effect": "applyPoison", "params": { "amount": 5 } }] },
+    { "id": "deepwound", "name": "深い傷", "archetype": "poison",
+      "desc": "毒ダメージが2倍に。",
+      "statMods": {}, "flags": ["poison_amp"], "hooks": [] },
+    { "id": "corrosion", "name": "腐食", "archetype": "poison",
+      "desc": "毒に侵された敵への直接ダメージ+100%。",
+      "statMods": {}, "flags": [],
+      "hooks": [{ "trigger": "onAttack", "effect": "bonusDmgVsPoisoned", "params": { "ratio": 2.0 } }] },
+    { "id": "plague", "name": "疫病", "archetype": "poison",
+      "desc": "毒で倒した敵から、周囲へ毒が伝播する。",
+      "statMods": {}, "flags": [],
+      "hooks": [{ "trigger": "onKill", "effect": "spreadPoison", "params": { "amount": 4, "radius": 2 } }] },
+
+    { "id": "thorns", "name": "棘の鎧", "archetype": "thorns",
+      "desc": "受けたダメージの50%を反射。",
+      "statMods": {}, "flags": [],
+      "hooks": [{ "trigger": "onHitTaken", "effect": "reflectRatio", "params": { "ratio": 0.5 } }] },
+    { "id": "ironwall", "name": "鉄壁", "archetype": "thorns",
+      "desc": "防御+3、最大HP+6。",
+      "statMods": { "def": 3, "maxHp": 6 }, "flags": [], "hooks": [] },
+    { "id": "spiked", "name": "棘の外殻", "archetype": "thorns",
+      "desc": "被弾時に固定4を反射。",
+      "statMods": {}, "flags": [],
+      "hooks": [{ "trigger": "onHitTaken", "effect": "reflectFlat", "params": { "amount": 4 } }] },
+    { "id": "retaliate", "name": "報復の誓い", "archetype": "thorns",
+      "desc": "被弾するたび攻撃+1（このラン限り）。",
+      "statMods": {}, "flags": [],
+      "hooks": [{ "trigger": "onHitTaken", "effect": "atkBuff", "params": { "amount": 1 } }] },
+
+    { "id": "vampiric", "name": "吸血", "archetype": "sustain",
+      "desc": "与ダメージの24%を回復。",
+      "statMods": {}, "flags": [],
+      "hooks": [{ "trigger": "onAttack", "effect": "lifeSteal", "params": { "ratio": 0.24 } }] },
+    { "id": "vitality", "name": "活力", "archetype": "sustain",
+      "desc": "最大HP+20。",
+      "statMods": { "maxHp": 20 }, "flags": [], "hooks": [] },
+    { "id": "regen", "name": "再生", "archetype": "sustain",
+      "desc": "毎ターンHP+1。",
+      "statMods": {}, "flags": [],
+      "hooks": [{ "trigger": "onTurnStart", "effect": "healFlat", "params": { "amount": 1 } }] },
+
+    { "id": "guard", "name": "守りの心得", "archetype": "utility",
+      "desc": "防御+2、攻撃+1。地味だが腐らない。",
+      "statMods": { "atk": 1, "def": 2 }, "flags": [], "hooks": [] },
+    { "id": "focus", "name": "集中", "archetype": "utility",
+      "desc": "攻撃+2。",
+      "statMods": { "atk": 2 }, "flags": [], "hooks": [] }
+  ],
+
+  "enemies": [
+    { "id": "rat", "name": "ネズミ", "symbol": "r", "hp": 5, "atk": 2, "defense": 0,
+      "behavior": "melee", "sight": 8, "gold": 2, "tier": 1, "telegraph": false, "spawnCap": null,
+      "note": "弱い群れ。数で押す。" },
+    { "id": "slime", "name": "スライム", "symbol": "s", "hp": 10, "atk": 3, "defense": 0,
+      "behavior": "slow", "sight": 8, "gold": 3, "tier": 1, "telegraph": false, "spawnCap": null,
+      "note": "鈍重。1ターンおきに動く。距離を取れば安全。" },
+    { "id": "bat", "name": "コウモリ", "symbol": "b", "hp": 6, "atk": 3, "defense": 0,
+      "behavior": "erratic", "sight": 8, "gold": 3, "tier": 2, "telegraph": false, "spawnCap": null,
+      "note": "不規則に高速移動。読みにくいが脆い。" },
+    { "id": "archer", "name": "射手", "symbol": "a", "hp": 8, "atk": 3, "defense": 0,
+      "behavior": "ranged", "sight": 5, "gold": 4, "tier": 2, "telegraph": true, "spawnCap": null,
+      "note": "直線上を狙撃。予兆あり。遮蔽に隠れるか接近して潰す。" },
+    { "id": "brute", "name": "大兵", "symbol": "B", "hp": 22, "atk": 7, "defense": 1,
+      "behavior": "slow", "sight": 8, "gold": 6, "tier": 3, "telegraph": false, "spawnCap": 2,
+      "note": "高耐久・高火力だが鈍重。釣って毒で溶かす。" },
+    { "id": "healer", "name": "治癒師", "symbol": "h", "hp": 12, "atk": 1, "defense": 0,
+      "behavior": "support", "sight": 8, "gold": 5, "tier": 3, "telegraph": false, "spawnCap": 1,
+      "note": "味方を回復し逃げ回る。最優先で潰す。" },
+    { "id": "boss", "name": "深淵の王", "symbol": "D", "hp": 78, "atk": 7, "defense": 2,
+      "behavior": "boss", "sight": 8, "gold": 40, "tier": 99, "telegraph": true, "spawnCap": null,
+      "note": "フロア区切りのボス。予兆付き全体攻撃を読む。" }
+  ],
+
+  "spawnTable": {
+    "1": [["rat", 5], ["slime", 4], ["bat", 1]],
+    "2": [["rat", 3], ["slime", 3], ["bat", 4], ["archer", 2]],
+    "3": [["slime", 2], ["bat", 3], ["archer", 2], ["brute", 3], ["healer", 2]],
+    "4": [["bat", 2], ["archer", 2], ["brute", 4], ["healer", 3]]
+  },
+
+  "archetypes": ["power", "poison", "thorns", "sustain", "utility"],
+
+  "synergyCombos": [
+    { "name": "毒:付与×増幅",   "archetype": "poison",  "relics": ["venom", "deepwound"] },
+    { "name": "毒:付与×腐食",   "archetype": "poison",  "relics": ["venom", "corrosion"] },
+    { "name": "毒:基幹3枚",     "archetype": "poison",  "relics": ["venom", "deepwound", "corrosion"] },
+    { "name": "反射:鎧×外殻",   "archetype": "thorns",  "relics": ["thorns", "spiked"] },
+    { "name": "反射:外殻×報復", "archetype": "thorns",  "relics": ["spiked", "retaliate"] },
+    { "name": "火力:狂×連撃",   "archetype": "power",   "relics": ["berserk", "twin"] },
+    { "name": "火力:鋭×巨人",   "archetype": "power",   "relics": ["sharp", "giant"] },
+    { "name": "持続:吸血×再生", "archetype": "sustain", "relics": ["vampiric", "regen"] }
+  ]
+}

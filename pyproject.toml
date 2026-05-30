@@ -23,5 +23,9 @@ roguelike = "roguelike.__main__:main"
 [tool.setuptools]
 packages = ["roguelike"]
 
+[tool.setuptools.package-data]
+# 数値真値（両エンジン共通）。インストール時に同梱する。
+roguelike = ["data.json"]
+
 [tool.pytest.ini_options]
 python_files = ["tests.py", "test_*.py"]

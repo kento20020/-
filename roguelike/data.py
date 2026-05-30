@@ -1,18 +1,28 @@
-"""データ駆動設計（設計仕様書 §11）。
+"""データ駆動設計（設計仕様書 §11 / Web版 §20）。
 
-敵・武器・レリックを「データ＋イベントフック」として定義する。
-ゲームロジック（engine.py）はこの定義を解釈して動くだけなので、
-バランス調整や要素追加をこのファイル内で完結できる。
+敵・武器・レリックの **数値真値は roguelike/data.json**（Python / TypeScript 両エンジンの
+唯一の真値）に置く。このモジュールは data.json を読み込み、エンジンが解釈する
+dataclass（Weapon / Relic / EnemyType）と索引（WEAPONS / RELICS / ENEMIES /
+SPAWN_TABLE / ARCHETYPES）へ再構築するだけ。
 
-レリックの効果はイベントフック（on_attack 等）で表現する。
-フックは engine の DamageContext / Entity を duck typing で触る。
-これにより「攻撃時に毒付与」×「毒の敵に追加ダメージ」のような
+レリックの効果はイベントフック（on_attack 等）で表現する。フックの実装は
+EFFECTS レジストリにあり、data.json の `hooks[].effect`（実装ID）と `params`
+（定数）から束ねて生成する。フックは engine の DamageContext / Entity を duck
+typing で触る。これにより「攻撃時に毒付与」×「毒の敵に追加ダメージ」のような
 シナジー（1+1=3）がデータ側の組み合わせだけで生まれる。
+
+バランス調整は data.json を編集し、必ず Python sim で再検証する（Web版 §18）。
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import json
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Optional
+
+# --- 真値ソース（両エンジン共通） ------------------------------------------
+DATA_PATH = Path(__file__).parent / "data.json"
+_RAW = json.loads(DATA_PATH.read_text(encoding="utf-8"))
 
 
 # ---------------------------------------------------------------------------
@@ -26,16 +36,6 @@ class Weapon:
     defense_mod: int = 0
     bonus_poison: int = 0          # 命中時に追加で乗る毒スタック
     note: str = ""
-
-
-WEAPONS = {
-    "dagger": Weapon("dagger", "短剣", attack=3, bonus_poison=1,
-                     note="基礎火力は低いが、命中ごとに毒を上乗せ。状態異常型と好相性。"),
-    "sword": Weapon("sword", "剣", attack=6,
-                    note="クセのない万能武器。どのビルドでも腐らない安定択。"),
-    "hammer": Weapon("hammer", "大槌", attack=7, defense_mod=-3,
-                     note="高火力だが防御-2。被弾を踏み倒す火力型／防御反射型向け。"),
-}
 
 
 # ---------------------------------------------------------------------------
@@ -59,100 +59,108 @@ class Relic:
     flags: tuple = ()              # 他フックが参照する目印（例: "poison_amp"）
 
 
-# --- フック実装 -------------------------------------------------------------
-def _venom_on_attack(game, owner, target, ctx):
-    # 攻撃時に毒3を付与（武器のbonus_poisonは engine 側で常時加算される）。
-    if ctx.amount > 0:
-        target.add_poison(3)
+# ---------------------------------------------------------------------------
+# 効果レジストリ（hooks[].effect → 実装）
+#   各ファクトリは params を受け取り、engine が呼ぶフック関数を返す。
+#   ここでの数値は data.json の params が唯一の出所（直書きしない）。
+# ---------------------------------------------------------------------------
+def _eff_applyPoison(p):
+    amount = p["amount"]
+    def f(game, owner, target, ctx):
+        if ctx.amount > 0:
+            target.add_poison(amount)
+    return f
 
 
-def _corrosion_on_attack(game, owner, target, ctx):
-    # 毒に侵された敵への直接ダメージ+50%（毒型の核シナジー）。
-    if target.poison > 0:
-        ctx.amount = int(ctx.amount * 1.5)
+def _eff_bonusDmgVsPoisoned(p):
+    ratio = p["ratio"]
+    def f(game, owner, target, ctx):
+        if target.poison > 0:
+            ctx.amount = int(ctx.amount * ratio)
+    return f
 
 
-def _berserk_on_attack(game, owner, target, ctx):
-    # HPが減っているほど火力上昇（最大+10）。火力型のハイリスク軸。
-    missing = 1.0 - owner.hp / max(1, owner.max_hp)
-    ctx.amount += int(missing * 10)
+def _eff_berserkScale(p):
+    mx = p["max"]
+    def f(game, owner, target, ctx):
+        missing = 1.0 - owner.hp / max(1, owner.max_hp)
+        ctx.amount += int(missing * mx)
+    return f
 
 
-def _double_strike_on_attack(game, owner, target, ctx):
-    # 30%で同じ攻撃をもう一度（追撃）。
-    if game.rng.combat.random() < 0.30:
-        ctx.extra_hits += 1
+def _eff_extraAttack(p):
+    chance = p["chance"]
+    def f(game, owner, target, ctx):
+        if game.rng.combat.random() < chance:
+            ctx.extra_hits += 1
+    return f
 
 
-def _vampiric_on_attack(game, owner, target, ctx):
-    # 与ダメージの30%回復。持続力を底上げする横断シナジー。
-    owner.heal(max(1, int(ctx.amount * 0.30)))
+def _eff_lifeSteal(p):
+    ratio = p["ratio"]
+    def f(game, owner, target, ctx):
+        owner.heal(max(1, int(ctx.amount * ratio)))
+    return f
 
 
-def _thorns_on_hit_taken(game, owner, attacker, ctx):
-    # 受けたダメージの50%を反射。
-    if attacker is not None and ctx.amount > 0:
-        game.deal_reflect(owner, attacker, max(1, int(ctx.amount * 0.5)))
+def _eff_reflectRatio(p):
+    ratio = p["ratio"]
+    def f(game, owner, attacker, ctx):
+        if attacker is not None and ctx.amount > 0:
+            game.deal_reflect(owner, attacker, max(1, int(ctx.amount * ratio)))
+    return f
 
 
-def _spiked_on_hit_taken(game, owner, attacker, ctx):
-    # 被弾時に固定3反射（thornsと重ねて反射ビルドが完成）。
-    if attacker is not None:
-        game.deal_reflect(owner, attacker, 3)
+def _eff_reflectFlat(p):
+    amount = p["amount"]
+    def f(game, owner, attacker, ctx):
+        if attacker is not None:
+            game.deal_reflect(owner, attacker, amount)
+    return f
 
 
-def _retaliate_on_hit_taken(game, owner, attacker, ctx):
-    # 被弾するたび恒久的に攻撃+1（このラン限り）。粘って育てる軸。
-    owner.attack += 1
+def _eff_atkBuff(p):
+    amount = p["amount"]
+    def f(game, owner, attacker, ctx):
+        owner.attack += amount
+    return f
 
 
-def _regen_on_turn(game, owner):
-    owner.heal(1)
+def _eff_healFlat(p):
+    amount = p["amount"]
+    def f(game, owner):
+        owner.heal(amount)
+    return f
 
 
-def _plague_on_kill(game, owner, victim):
-    # 毒で侵された敵が死ぬと、周囲の敵へ毒3が伝播。
-    if victim.poison > 0:
-        for e in game.enemies_near(victim.x, victim.y, radius=2):
-            e.add_poison(3)
+def _eff_spreadPoison(p):
+    amount, radius = p["amount"], p["radius"]
+    def f(game, owner, victim):
+        if victim.poison > 0:
+            for e in game.enemies_near(victim.x, victim.y, radius=radius):
+                e.add_poison(amount)
+    return f
 
 
-RELICS = {
-    # --- 火力型 (power) ---
-    "sharp":    Relic("sharp", "鋭利な刃", "power", "攻撃+3。シンプルな火力上乗せ。", attack=3),
-    "giant":    Relic("giant", "巨人の血", "power", "攻撃+6、最大HP-12。火力に全振りするハイリスク。",
-                      attack=6, max_hp=-12),
-    "berserk":  Relic("berserk", "狂戦士の怒り", "power", "HPが減るほど火力上昇（最大+10）。",
-                      on_attack=_berserk_on_attack, flags=("lowhp",)),
-    "twin":     Relic("twin", "双牙", "power", "30%で攻撃が2回ヒット。", on_attack=_double_strike_on_attack),
+EFFECTS = {
+    "applyPoison": _eff_applyPoison,
+    "bonusDmgVsPoisoned": _eff_bonusDmgVsPoisoned,
+    "berserkScale": _eff_berserkScale,
+    "extraAttack": _eff_extraAttack,
+    "lifeSteal": _eff_lifeSteal,
+    "reflectRatio": _eff_reflectRatio,
+    "reflectFlat": _eff_reflectFlat,
+    "atkBuff": _eff_atkBuff,
+    "healFlat": _eff_healFlat,
+    "spreadPoison": _eff_spreadPoison,
+}
 
-    # --- 状態異常型 (poison) ---
-    "venom":    Relic("venom", "毒の刃", "poison", "攻撃時に毒2を付与。毒ビルドの起点。",
-                      on_attack=_venom_on_attack),
-    "deepwound":Relic("deepwound", "深い傷", "poison", "毒ダメージが2倍に。",
-                      flags=("poison_amp",)),
-    "corrosion":Relic("corrosion", "腐食", "poison", "毒に侵された敵への直接ダメージ+50%。",
-                      on_attack=_corrosion_on_attack),
-    "plague":   Relic("plague", "疫病", "poison", "毒で倒した敵から、周囲へ毒が伝播する。",
-                      on_kill=_plague_on_kill),
-
-    # --- 防御反射型 (thorns) ---
-    "thorns":   Relic("thorns", "棘の鎧", "thorns", "受けたダメージの50%を反射。",
-                      on_hit_taken=_thorns_on_hit_taken),
-    "ironwall": Relic("ironwall", "鉄壁", "thorns", "防御+4、最大HP+10。", defense=4, max_hp=10),
-    "spiked":   Relic("spiked", "棘の外殻", "thorns", "被弾時に固定3を反射。", on_hit_taken=_spiked_on_hit_taken),
-    "retaliate":Relic("retaliate","報復の誓い","thorns","被弾するたび攻撃+1（このラン限り）。",
-                      on_hit_taken=_retaliate_on_hit_taken),
-
-    # --- 持続/横断 (sustain) ---
-    "vampiric": Relic("vampiric", "吸血", "sustain", "与ダメージの30%を回復。", on_attack=_vampiric_on_attack),
-    "vitality": Relic("vitality", "活力", "sustain", "最大HP+25。", max_hp=25),
-    "regen":    Relic("regen", "再生", "sustain", "毎ターンHP+1。", on_turn_start=_regen_on_turn),
-
-    # --- ユーティリティ (utility) ---
-    "guard":    Relic("guard", "守りの心得", "utility", "防御+2、攻撃+1。地味だが腐らない。",
-                      defense=2, attack=1),
-    "focus":    Relic("focus", "集中", "utility", "攻撃+2。", attack=2),
+# hooks[].trigger → Relic のフックスロット名
+_TRIGGER_SLOT = {
+    "onAttack": "on_attack",
+    "onHitTaken": "on_hit_taken",
+    "onTurnStart": "on_turn_start",
+    "onKill": "on_kill",
 }
 
 
@@ -171,33 +179,70 @@ class EnemyType:
     sight: int = 8
     gold: int = 3
     tier: int = 1       # 出現フロアの目安
+    telegraph: bool = False
+    spawn_cap: Optional[int] = None   # 1フロアの出現上限（None=無制限）
     note: str = ""
 
 
-ENEMIES = {
-    "rat":    EnemyType("rat", "ネズミ", "r", hp=5, attack=2, defense=0, behavior="melee",
-                        gold=2, tier=1, note="弱い群れ。数で押す。"),
-    "slime":  EnemyType("slime", "スライム", "s", hp=10, attack=3, defense=0, behavior="slow",
-                        gold=3, tier=1, note="鈍重。1ターンおきに動く。距離を取れば安全。"),
-    "bat":    EnemyType("bat", "コウモリ", "b", hp=6, attack=3, defense=0, behavior="erratic",
-                        gold=3, tier=2, note="不規則に高速移動。読みにくいが脆い。"),
-    "archer": EnemyType("archer", "射手", "a", hp=8, attack=3, defense=0, behavior="ranged",
-                        sight=5, gold=4, tier=2, note="直線上を狙撃。予兆あり。遮蔽に隠れるか接近して潰す。"),
-    "brute":  EnemyType("brute", "大兵", "B", hp=22, attack=7, defense=1, behavior="slow",
-                        gold=6, tier=3, note="高耐久・高火力だが鈍重。釣って毒で溶かす。"),
-    "healer": EnemyType("healer", "治癒師", "h", hp=12, attack=1, defense=0, behavior="support",
-                        gold=5, tier=3, note="味方を回復し逃げ回る。最優先で潰す。"),
-    "boss":   EnemyType("boss", "深淵の王", "D", hp=66, attack=7, defense=2, behavior="boss",
-                        gold=40, tier=99, note="フロア区切りのボス。予兆付き全体攻撃を読む。"),
-}
+# ---------------------------------------------------------------------------
+# data.json → 索引の構築
+# ---------------------------------------------------------------------------
+def _build_weapons(raw):
+    out = {}
+    for w in raw:
+        out[w["id"]] = Weapon(
+            id=w["id"], name=w["name"], attack=w["atk"],
+            defense_mod=w.get("defMod", 0), bonus_poison=w.get("bonusPoison", 0),
+            note=w.get("note", ""),
+        )
+    return out
 
 
-# 通常敵の出現テーブル（フロアtier別）。data側で重みを管理。
-SPAWN_TABLE = {
-    1: [("rat", 5), ("slime", 4), ("bat", 1)],
-    2: [("rat", 3), ("slime", 3), ("bat", 4), ("archer", 2)],
-    3: [("slime", 2), ("bat", 3), ("archer", 2), ("brute", 3), ("healer", 2)],
-    4: [("bat", 2), ("archer", 2), ("brute", 4), ("healer", 3)],
-}
+def _build_relic(r):
+    sm = r.get("statMods") or {}
+    relic = Relic(
+        id=r["id"], name=r["name"], archetype=r["archetype"], desc=r.get("desc", ""),
+        attack=sm.get("atk", 0), defense=sm.get("def", 0), max_hp=sm.get("maxHp", 0),
+        flags=tuple(r.get("flags", [])),
+    )
+    for h in r.get("hooks", []):
+        slot = _TRIGGER_SLOT[h["trigger"]]
+        fn = EFFECTS[h["effect"]](h.get("params", {}))
+        setattr(relic, slot, fn)
+    return relic
 
-ARCHETYPES = ("power", "poison", "thorns", "sustain", "utility")
+
+def _build_relics(raw):
+    return {r["id"]: _build_relic(r) for r in raw}
+
+
+def _build_enemies(raw):
+    out = {}
+    for e in raw:
+        out[e["id"]] = EnemyType(
+            id=e["id"], name=e["name"], symbol=e["symbol"],
+            hp=e["hp"], attack=e["atk"], defense=e["defense"],
+            behavior=e["behavior"], sight=e.get("sight", 8), gold=e.get("gold", 3),
+            tier=e.get("tier", 1), telegraph=e.get("telegraph", False),
+            spawn_cap=e.get("spawnCap"), note=e.get("note", ""),
+        )
+    return out
+
+
+def _build_spawn_table(raw):
+    # JSONのキーは文字列。intキー・(id, weight) タプルへ正規化。
+    return {int(k): [tuple(pair) for pair in v] for k, v in raw.items()}
+
+
+WEAPONS = _build_weapons(_RAW["weapons"])
+RELICS = _build_relics(_RAW["relics"])
+ENEMIES = _build_enemies(_RAW["enemies"])
+SPAWN_TABLE = _build_spawn_table(_RAW["spawnTable"])
+ARCHETYPES = tuple(_RAW["archetypes"])
+
+# ラン/プレイヤーの定数（engine が参照）。
+RUN = _RAW["run"]
+PLAYER = _RAW["player"]
+
+# 名前付きシナジーコンボ（KPI のコンボ別クリア率計測用：simulate.py）。
+SYNERGY_COMBOS = _RAW.get("synergyCombos", [])
