@@ -1,0 +1,174 @@
+{
+  "_meta": {
+    "version": "draft",
+    "source": "docs only — null values must be filled from data.py before use in either engine",
+    "hookEvents": ["onAttack", "onHitTaken", "onTurnStart", "onKill"],
+    "note_passive": "'passive' trigger = always-on modifier, not event-based"
+  },
+
+  "run": {
+    "floors": 5,
+    "bossFloor": 5,
+    "floorClearHeal": 0.22
+  },
+
+  "player": {
+    "hp": 46,
+    "atk": 2
+  },
+
+  "weapons": [
+    {
+      "id": "dagger", "name": "短剣", "atk": 3,
+      "statMods": {},
+      "hooks": [{ "trigger": "onAttack", "effect": "applyPoison", "amount": 1 }]
+    },
+    {
+      "id": "sword", "name": "剣", "atk": 6,
+      "statMods": {}, "hooks": []
+    },
+    {
+      "id": "maul", "name": "大槌", "atk": 7,
+      "statMods": { "def": -3 }, "hooks": []
+    }
+  ],
+
+  "relics": [
+    {
+      "id": "sharp", "name": "鋭利", "archetype": "power",
+      "statMods": { "atk": null }, "hooks": []
+    },
+    {
+      "id": "giants_blood", "name": "巨人の血", "archetype": "power",
+      "statMods": { "atk": 6, "maxHp": -12 }, "hooks": []
+    },
+    {
+      "id": "berserker", "name": "狂戦士", "archetype": "power",
+      "statMods": {},
+      "hooks": [{ "trigger": "onTurnStart", "effect": "atkBonusWhenHpBelow",
+                  "threshold": null, "bonus": null }]
+    },
+    {
+      "id": "twin_fang", "name": "双牙", "archetype": "power",
+      "statMods": {},
+      "hooks": [{ "trigger": "onKill", "effect": "extraAttack" }]
+    },
+    {
+      "id": "venom_edge", "name": "毒の刃", "archetype": "poison",
+      "statMods": {},
+      "hooks": [{ "trigger": "onAttack", "effect": "applyPoison", "amount": null }]
+    },
+    {
+      "id": "deep_wound", "name": "深い傷", "archetype": "poison",
+      "statMods": {},
+      "hooks": [{ "trigger": "passive", "effect": "poisonMultiplier", "factor": 2 }]
+    },
+    {
+      "id": "corrosion", "name": "腐食", "archetype": "poison",
+      "statMods": {},
+      "hooks": [{ "trigger": "passive", "effect": "bonusDmgVsPoisoned", "ratio": null }]
+    },
+    {
+      "id": "plague", "name": "疫病", "archetype": "poison",
+      "statMods": {},
+      "hooks": [{ "trigger": "onKill", "effect": "spreadPoison" }]
+    },
+    {
+      "id": "thorn_armor", "name": "棘の鎧", "archetype": "thorns",
+      "statMods": {},
+      "hooks": [{ "trigger": "onHitTaken", "effect": "reflectDamage", "amount": null }]
+    },
+    {
+      "id": "shell", "name": "外殻", "archetype": "thorns",
+      "statMods": {},
+      "hooks": [{ "trigger": "onHitTaken", "effect": "reflectDamage", "amount": null }]
+    },
+    {
+      "id": "iron_will", "name": "鉄壁", "archetype": "thorns",
+      "statMods": { "def": null }, "hooks": []
+    },
+    {
+      "id": "retaliation", "name": "報復", "archetype": "thorns",
+      "statMods": {},
+      "hooks": [{ "trigger": "onHitTaken", "effect": "atkBuff", "amount": 1 }]
+    },
+    {
+      "id": "vampirism", "name": "吸血", "archetype": "sustain",
+      "statMods": {},
+      "hooks": [{ "trigger": "onAttack", "effect": "lifeSteal", "ratio": null }]
+    },
+    {
+      "id": "regeneration", "name": "再生", "archetype": "sustain",
+      "statMods": {},
+      "hooks": [{ "trigger": "onTurnStart", "effect": "healFlat", "amount": null }]
+    },
+    {
+      "id": "vitality", "name": "活力", "archetype": "sustain",
+      "statMods": { "maxHp": null }, "hooks": []
+    },
+    {
+      "id": "guard_mind", "name": "守りの心得", "archetype": "utility",
+      "statMods": null, "hooks": [{ "trigger": null, "effect": null }]
+    },
+    {
+      "id": "focus", "name": "集中", "archetype": "utility",
+      "statMods": null, "hooks": [{ "trigger": null, "effect": null }]
+    }
+  ],
+
+  "enemies": [
+    {
+      "id": "rat",    "name": "ネズミ",   "hp": null, "atk": null,
+      "behavior": "basic",      "range": 1, "telegraph": false, "spawnCap": null
+    },
+    {
+      "id": "slime",  "name": "スライム", "hp": null, "atk": null,
+      "behavior": "slow",       "range": 1, "telegraph": false, "spawnCap": null
+    },
+    {
+      "id": "bat",    "name": "コウモリ", "hp": null, "atk": null,
+      "behavior": "erratic",    "range": 1, "telegraph": false, "spawnCap": null
+    },
+    {
+      "id": "archer", "name": "射手",    "hp": null, "atk": 3,
+      "behavior": "lineShot",   "range": 5, "telegraph": true,  "spawnCap": null
+    },
+    {
+      "id": "brute",  "name": "大兵",    "hp": null, "atk": null,
+      "behavior": "tanky",      "range": 1, "telegraph": false, "spawnCap": 2
+    },
+    {
+      "id": "healer", "name": "治癒師",  "hp": null, "atk": null,
+      "behavior": "healAllies", "range": 1, "telegraph": false, "spawnCap": 1
+    },
+    {
+      "id": "boss",   "name": "深淵の王","hp": 66,   "atk": null,
+      "behavior": "boss",       "range": 1, "telegraph": true,  "spawnCap": 1
+    }
+  ],
+
+  "spawnTable": {
+    "1": [
+      { "id": "rat",   "weight": null },
+      { "id": "slime", "weight": null }
+    ],
+    "2": [
+      { "id": "rat",   "weight": null },
+      { "id": "slime", "weight": null },
+      { "id": "bat",   "weight": null }
+    ],
+    "3": [
+      { "id": "bat",    "weight": null },
+      { "id": "archer", "weight": null },
+      { "id": "healer", "weight": null }
+    ],
+    "4": [
+      { "id": "archer", "weight": null },
+      { "id": "brute",  "weight": null },
+      { "id": "healer", "weight": null }
+    ],
+    "5": [
+      { "id": "boss", "weight": 1, "guaranteed": true }
+    ]
+  }
+}
