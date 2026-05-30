@@ -59,6 +59,7 @@ export interface EnemyType {
   tier: number;
   telegraph: boolean;
   spawnCap: number | null;
+  params: Record<string, number>;
   note: string;
 }
 
@@ -137,7 +138,8 @@ function buildEnemy(e: any): EnemyType {
   return {
     id: e.id, name: e.name, symbol: e.symbol, hp: e.hp, attack: e.atk, defense: e.defense,
     behavior: e.behavior, sight: e.sight ?? 8, gold: e.gold ?? 3, tier: e.tier ?? 1,
-    telegraph: e.telegraph ?? false, spawnCap: e.spawnCap ?? null, note: e.note ?? "",
+    telegraph: e.telegraph ?? false, spawnCap: e.spawnCap ?? null,
+    params: e.params ?? {}, note: e.note ?? "",
   };
 }
 
@@ -166,6 +168,11 @@ export const RUN = raw.run as {
   bossPool: string[];
 };
 export const PLAYER = raw.player as { hp: number; atk: number };
+export const TUNING = (raw as any).tuning as {
+  poisonAmp: number;
+  poisonDecay: number;
+  rewardChoices: number;
+};
 export const SYNERGY_COMBOS = ((raw as any).synergyCombos ?? []) as Array<{
   name: string;
   archetype: string;

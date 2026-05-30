@@ -13,6 +13,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { BEHAVIORS } from "../src/behaviors.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const webRoot = join(here, "..");
@@ -50,7 +51,14 @@ function checkData(): void {
     for (const h of r.hooks ?? [])
       for (const [pk, pv] of Object.entries(h.params ?? {}))
         if (pv == null) fail(`レリック ${r.id} の効果パラメータ ${pk} が null`);
-  if (problems.length === 0) ok("data.json 整合（武器3・レリック17・敵8・系統5・コンボ定義あり・null無し）");
+  // 敵の behavior が behaviors レジストリに登録されているか（未登録＝即落ち＝齟齬検知）
+  for (const e of d.enemies ?? [])
+    if (!(e.behavior in BEHAVIORS)) fail(`敵 ${e.id} の behavior「${e.behavior}」が BEHAVIORS 未登録（behaviors.ts に追加を）`);
+  // tuning 必須キー
+  for (const k of ["poisonAmp", "poisonDecay", "rewardChoices"])
+    if (d.tuning?.[k] == null) fail(`data.json tuning.${k} が無い`);
+  if (problems.length === 0)
+    ok("data.json 整合（武器3・レリック17・敵8・系統5・behavior登録済・tuning有・コンボ定義・null無し）");
 }
 
 // ---- 2) package.json scripts ----
