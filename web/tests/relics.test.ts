@@ -27,8 +27,8 @@ test("statMod: 攻/防/最大HP が取得で変化", () => {
   g = new Game(1, "sword");
   const d = g.player.defense, m2 = g.player.maxHp;
   g.player.addRelic(R("ironwall"));
-  assert.equal(g.player.defense, d + 3);
-  assert.equal(g.player.maxHp, m2 + 6);
+  assert.equal(g.player.defense, d + 2); // 鉄壁は v0.2 で +3→+2 に調整済み（突出した1択の解消）
+  assert.equal(g.player.maxHp, m2 + 4);  // 同上 最大HP +6→+4
 
   g = new Game(1, "sword");
   const m3 = g.player.maxHp;
