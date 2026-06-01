@@ -64,7 +64,7 @@ export interface EnemyType {
 }
 
 // --- 効果レジストリ（data.py の EFFECTS と完全一致）。int() は Math.trunc。 ---
-type EffectFactory = (p: any) => (...args: any[]) => void;
+type EffectFactory = (p: any, key?: string) => (...args: any[]) => void;
 
 // 各効果は発動時にログ(g.msg)を出す＝プレイヤーに「効果が働いた」ことを見せる（§9 透明性）。
 // ログは trace/result に含まれないため golden は不変（挙動・RNG順・バランスは変わらない）。
@@ -112,9 +112,20 @@ const EFFECTS: Record<string, EffectFactory> = {
       g.msg(`棘の外殻：${p.amount}反射`);
     }
   },
-  atkBuff: (p) => (g, owner) => {
-    owner.attack += p.amount;
-    g.msg(`報復の誓い：攻撃+${p.amount}`);
+  atkBuff: (p, key) => (g, owner) => {
+    // cap: ラン累計の上限（data.json で調整できるバランスノブ）。未指定なら無制限＝従来挙動。
+    if (p.cap != null) {
+      const k = key ?? "atkBuff";
+      const added = owner.effectState[k] ?? 0;
+      if (added >= p.cap) return;                       // 上限到達後は発動しない
+      const inc = Math.min(p.amount, p.cap - added);
+      owner.attack += inc;
+      owner.effectState[k] = added + inc;
+      g.msg(`報復の誓い：攻撃+${inc}（累計+${added + inc}/${p.cap}）`);
+    } else {
+      owner.attack += p.amount;
+      g.msg(`報復の誓い：攻撃+${p.amount}`);
+    }
   },
   healFlat: (p) => (g, owner) => {
     // combatOnly: フロアに生存敵がいるターンのみ回復（戦闘外でのうろつき全回復を封じる）。
@@ -155,7 +166,7 @@ function buildRelic(r: any): Relic {
   };
   for (const h of r.hooks ?? []) {
     const slot = TRIGGER_SLOT[h.trigger];
-    const fn = EFFECTS[h.effect](h.params ?? {});
+    const fn = EFFECTS[h.effect](h.params ?? {}, r.id);
     (relic as any)[slot] = fn;
   }
   return relic;

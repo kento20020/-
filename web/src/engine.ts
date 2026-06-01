@@ -25,6 +25,8 @@ export class Entity {
   poison = 0;
   alive = true;
   isPlayer = false;
+  // ラン毎の効果累計状態（cap付き効果などが relic id をキーに使う）。Entity生成＝ラン毎にリセット。
+  effectState: Record<string, number> = {};
   constructor(
     public name: string, public symbol: string, public x: number, public y: number,
     public maxHp: number, public hp: number, public attack: number, public defense: number,
