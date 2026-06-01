@@ -5,12 +5,13 @@
 import { PyRandom } from "../src/rng.ts";
 import { Game } from "../src/engine.ts";
 import { Bot } from "../src/bot.ts";
-import { WEAPONS, ARCHETYPES } from "../src/data.ts";
+import { WEAPONS, ARCHETYPES, START } from "../src/data.ts";
 import type { Result } from "./report-lib.ts";
 
 export function runBatch(n: number, baseSeed: number, policy = "balanced"): Result[] {
   const meta = new PyRandom(baseSeed);
-  const weapons = [...WEAPONS.keys()];
+  // 開始武器プールは data.json の start.weaponPool（初期装備を data 駆動に）。既定で全武器。
+  const weapons = START.weaponPool ?? [...WEAPONS.keys()];
   const prefs = ARCHETYPES;
   const out: Result[] = [];
   for (let i = 0; i < n; i++) {

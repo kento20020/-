@@ -29,6 +29,11 @@ export interface Weapon {
   defenseMod: number;
   bonusPoison: number;
   note: string;
+  // 武器もレリックと同じ hooks 機構で効果を持てる（data.json の weapons[].hooks）。
+  onAttack?: OnAttack;
+  onHitTaken?: OnHitTaken;
+  onTurnStart?: OnTurnStart;
+  onKill?: OnKill;
 }
 
 export interface Relic {
@@ -61,6 +66,8 @@ export interface EnemyType {
   spawnCap: number | null;
   params: Record<string, number>;
   note: string;
+  // 撃破報酬（任意・data駆動）。倒した時に gold/heal/relic を付与。ボスや将来の道中ボスに。
+  reward?: { gold?: number; heal?: number; relic?: string } | null;
 }
 
 // --- 効果レジストリ（data.py の EFFECTS と完全一致）。int() は Math.trunc。 ---
@@ -149,12 +156,27 @@ const TRIGGER_SLOT: Record<string, keyof Relic> = {
   onKill: "onKill",
 };
 
+/**
+ * data.json の hooks[{trigger,effect,params}] を EFFECTS で束ね、target のスロットへ割当てる。
+ * レリックと武器で共有（拡張容易化）。keyBase は cap等の累計効果が owner.effectState に使うキー
+ * （レリックは id、武器は "weapon:<id>"。同一キャリアに同種の累計効果を複数積む場合のみ衝突注意）。
+ */
+function bindHooks(target: any, hooks: any[] | undefined, keyBase: string): void {
+  for (const h of hooks ?? []) {
+    const slot = TRIGGER_SLOT[h.trigger];
+    if (!slot) continue;
+    target[slot] = EFFECTS[h.effect](h.params ?? {}, keyBase);
+  }
+}
+
 // --- data.json → 索引の構築 ------------------------------------------------
 function buildWeapon(w: any): Weapon {
-  return {
+  const weapon: Weapon = {
     id: w.id, name: w.name, attack: w.atk,
     defenseMod: w.defMod ?? 0, bonusPoison: w.bonusPoison ?? 0, note: w.note ?? "",
   };
+  bindHooks(weapon, w.hooks, "weapon:" + w.id);
+  return weapon;
 }
 
 function buildRelic(r: any): Relic {
@@ -164,11 +186,7 @@ function buildRelic(r: any): Relic {
     attack: sm.atk ?? 0, defense: sm.def ?? 0, maxHp: sm.maxHp ?? 0,
     flags: [...(r.flags ?? [])],
   };
-  for (const h of r.hooks ?? []) {
-    const slot = TRIGGER_SLOT[h.trigger];
-    const fn = EFFECTS[h.effect](h.params ?? {}, r.id);
-    (relic as any)[slot] = fn;
-  }
+  bindHooks(relic, r.hooks, r.id);
   return relic;
 }
 
@@ -177,7 +195,7 @@ function buildEnemy(e: any): EnemyType {
     id: e.id, name: e.name, symbol: e.symbol, hp: e.hp, attack: e.atk, defense: e.defense,
     behavior: e.behavior, sight: e.sight ?? 8, gold: e.gold ?? 3, tier: e.tier ?? 1,
     telegraph: e.telegraph ?? false, spawnCap: e.spawnCap ?? null,
-    params: e.params ?? {}, note: e.note ?? "",
+    params: e.params ?? {}, note: e.note ?? "", reward: e.reward ?? null,
   };
 }
 
@@ -192,7 +210,7 @@ export const ENEMIES = new Map<string, EnemyType>(
   (raw.enemies as any[]).map((e) => [e.id, buildEnemy(e)]),
 );
 export const SPAWN_TABLE: Record<number, Array<[string, number]>> = Object.fromEntries(
-  Object.entries(raw.spawnTable as Record<string, [string, number][]>).map(
+  Object.entries(raw.spawnTable as unknown as Record<string, [string, number][]>).map(
     ([k, v]) => [Number(k), v.map((pair) => [pair[0], pair[1]] as [string, number])],
   ),
 );
@@ -205,7 +223,12 @@ export const RUN = raw.run as {
   restChance: number;
   bossPool: string[];
 };
-export const PLAYER = raw.player as { hp: number; atk: number };
+// 初期装備（初期HP/攻撃・開始武器プール・開始レリック）を data.json に一元化（数値変更が容易）。
+export const START = (raw as any).start as {
+  hp: number; atk: number; weaponPool: string[]; relics: string[];
+};
+// PLAYER は START から導出（後方互換のため名前を維持）。
+export const PLAYER = { hp: START.hp, atk: START.atk };
 export const TUNING = (raw as any).tuning as {
   poisonAmp: number;
   poisonDecay: number;

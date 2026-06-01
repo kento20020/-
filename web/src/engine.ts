@@ -5,7 +5,7 @@
 import { GameRNG } from "./rng.ts";
 import * as world from "./world.ts";
 import {
-  WEAPONS, RELICS, ENEMIES, SPAWN_TABLE, ARCHETYPES, RUN, PLAYER, TUNING,
+  WEAPONS, RELICS, ENEMIES, SPAWN_TABLE, ARCHETYPES, RUN, PLAYER, START, TUNING,
   type Weapon, type Relic, type EnemyType,
 } from "./data.ts";
 import { BEHAVIORS } from "./behaviors.ts";
@@ -105,7 +105,7 @@ export class Game {
   relicsOfferedTotal: string[] = [];
   relicsTaken: string[] = [];
 
-  constructor(seed: number, weaponId = "sword", numFloors: number | null = null, startingRelics: string[] = []) {
+  constructor(seed: number, weaponId = "sword", numFloors: number | null = null, startingRelics: string[] = START.relics) {
     this.rng = new GameRNG(seed);
     this.seed = seed;
     this.numFloors = numFloors ?? RUN.floors;
@@ -196,6 +196,8 @@ export class Game {
       for (const r of this.player.relics) {
         if (r.onHitTaken) r.onHitTaken(this, this.player, attacker, mkCtx(amount, attacker, target, source));
       }
+      const w = this.player.weapon;
+      if (w.onHitTaken) w.onHitTaken(this, this.player, attacker, mkCtx(amount, attacker, target, source));
     }
     if (target.hp <= 0) this.kill(target, attacker);
   }
@@ -209,10 +211,12 @@ export class Game {
     const enemy = target as Enemy;
     this.kills += 1;
     this.player.gold += enemy.etype.gold;
+    if (enemy.etype.reward) this.grantKillReward(enemy);
     if (killer === this.player) {
       for (const r of this.player.relics) {
         if (r.onKill) r.onKill(this, this.player, enemy);
       }
+      if (this.player.weapon.onKill) this.player.weapon.onKill(this, this.player, enemy);
     }
     if (enemy.etype.behavior.startsWith("boss")) {
       this.state = "win";
@@ -228,6 +232,7 @@ export class Game {
       hits -= 1;
       const ctx = mkCtx(p.power, p, enemy, "attack");
       for (const r of p.relics) if (r.onAttack) r.onAttack(this, p, enemy, ctx);
+      if (p.weapon.onAttack) p.weapon.onAttack(this, p, enemy, ctx);
       const dmg = Math.max(1, ctx.amount - enemy.defense);
       total += dmg;
       this.applyDamage(enemy, dmg, p, "attack");
@@ -320,6 +325,7 @@ export class Game {
     this.tickPoison();
     if (this.state !== "playing") return;
     for (const r of this.player.relics) if (r.onTurnStart) r.onTurnStart(this, this.player);
+    if (this.player.weapon.onTurnStart) this.player.weapon.onTurnStart(this, this.player);
     for (const e of [...this.enemies]) {
       if (e.alive && this.state === "playing") this.actEnemy(e);
     }
@@ -397,6 +403,21 @@ export class Game {
   }
 
   // ----- 報酬 -----
+  /** 撃破報酬（data駆動・enemies[].reward）。倒した敵が gold/heal/relic を付与。ボス／将来の道中ボス向け。 */
+  private grantKillReward(enemy: Enemy): void {
+    const r = enemy.etype.reward;
+    if (!r) return;
+    if (r.gold) this.player.gold += r.gold;
+    if (r.heal) this.player.heal(r.heal);
+    if (r.relic && RELICS.has(r.relic)) {
+      this.player.addRelic(RELICS.get(r.relic)!);
+      this.relicsTaken.push(r.relic);
+    }
+    const parts = [r.gold && `金+${r.gold}`, r.heal && `HP+${r.heal}`, r.relic && RELICS.get(r.relic)?.name]
+      .filter(Boolean).join(" / ");
+    this.msg(`${enemy.name} 撃破報酬：${parts}`);
+  }
+
   private rollRewards(): string[] {
     const owned = new Set(this.player.relics.map((r) => r.id));
     const pool = [...RELICS.keys()].filter((rid) => !owned.has(rid));

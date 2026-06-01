@@ -14,7 +14,7 @@ Bot シミュレーションで KPI を計測して意思決定する。**体感
 - エンジン（純ロジック・決定論）: `web/src/engine.ts` / `web/src/world.ts`（生成＋到達性）/ `web/src/rng.ts`（CPython MT19937 互換）/ `web/src/data.ts`（data.json ローダ＋効果レジストリ）
 - Bot（シム用AI）: `web/src/bot.ts`（policy = balanced / aggressive / cautious）
 - プレイUI（DOM/CSS）: `web/index.html` / `web/src/main.ts` / `web/src/ui/view.ts` / `web/src/ui/telemetry.ts`（localStorage）/ `web/src/styles.css`
-- 数値真値: `web/data.json`（武器3・レリック17・敵8〈ボス2種〉・spawnTable・synergyCombos）
+- 数値真値: `web/data.json`（`start`初期装備・武器3〈+任意hooks効果〉・レリック17・敵8〈ボス2種,撃破`reward`〉・spawnTable・synergyCombos）
 - 開発ツール（Node）: `web/scripts/sim.ts`（KPI）/ `web/scripts/report.ts`（人間データ分析）/ `web/scripts/gen-fixtures.ts`（ゴールデン再生成）/ `web/scripts/report-lib.ts` / `web/scripts/batch.ts` / `web/scripts/doctor.ts`
 - 回帰テスト: `web/tests/rng.test.ts`（RNG bit一致）/ `web/tests/golden.test.ts`（result・trace の決定論一致）。基準は `web/fixtures/`
 
@@ -23,7 +23,7 @@ Bot シミュレーションで KPI を計測して意思決定する。**体感
 2. **公平なランダム性** — 予兆（テレグラフ）で回避可能にし、運だけで死なせない
 3. **知識が報われる** — 敵パターン・効果を一貫させ学習可能に
 詳細は `docs/設計仕様書.md`、運用は `docs/開発運用ガイド.md`、Web移植方針は `docs/設計仕様書_Web版実装仕様.md`。
-**要素（武器/レリック効果/敵/敵AI/ボス）の足し方は `docs/拡張ガイド.md`**（敵AIは `web/src/behaviors.ts` のレジストリ、効果は `web/src/data.ts` の EFFECTS に1個足すだけ＝engine 無編集）。
+**要素（武器/レリック効果/敵/敵AI/ボス/撃破報酬/初期装備）の足し方は `docs/拡張ガイド.md`**（敵AIは `web/src/behaviors.ts` のレジストリ、効果は `web/src/data.ts` の EFFECTS に1個足すだけ＝engine 無編集。**武器も同じ hooks 機構で効果**を持て、**撃破報酬**は `enemies[].reward`、**初期装備**は `start` ブロックで data 駆動。doctorは件数を自動カウント）。
 
 ## バランス変更プロトコル（齟齬を出さない鉄則）
 バランスは **必ず `web/data.json` だけ**を編集する（エンジンのロジックは変えない＝決定論を保つ）。
