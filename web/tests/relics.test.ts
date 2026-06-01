@@ -77,11 +77,13 @@ test("thorns/spiked: 被弾で反射ダメージ", () => {
   assert.equal(a2.maxHp - a2.hp, 4, "spikedは固定4反射");
 });
 
-test("retaliate: 被弾で攻撃+1", () => {
+test("retaliate: 被弾で攻撃+1（ラン累計cap=6で頭打ち）", () => {
   const g = new Game(1, "sword");
   const a = g.player.attack;
   R("retaliate").onHitTaken!(g, g.player, brute(), ctx(5));
-  assert.equal(g.player.attack, a + 1);
+  assert.equal(g.player.attack, a + 1, "1発目は+1");
+  for (let i = 0; i < 10; i++) R("retaliate").onHitTaken!(g, g.player, brute(), ctx(5));
+  assert.equal(g.player.attack, a + 6, "ラン累計cap=6で頭打ち（v0.2.1：突出した1択の解消）");
 });
 
 test("regen: 戦闘中のみ回復（combatOnly）", () => {

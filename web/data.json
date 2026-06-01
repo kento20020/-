@@ -66,9 +66,9 @@
       "statMods": {}, "flags": [],
       "hooks": [{ "trigger": "onHitTaken", "effect": "reflectFlat", "params": { "amount": 4 } }] },
     { "id": "retaliate", "name": "報復の誓い", "archetype": "thorns",
-      "desc": "被弾するたび攻撃+1（このラン限り）。",
+      "desc": "被弾するたび攻撃+1（このラン限り、累計+6まで）。",
       "statMods": {}, "flags": [],
-      "hooks": [{ "trigger": "onHitTaken", "effect": "atkBuff", "params": { "amount": 1 } }] },
+      "hooks": [{ "trigger": "onHitTaken", "effect": "atkBuff", "params": { "amount": 1, "cap": 6 } }] },
 
     { "id": "vampiric", "name": "吸血", "archetype": "sustain",
       "desc": "与ダメージの24%を回復。",
