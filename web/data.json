@@ -14,7 +14,7 @@
   "tuning": { "poisonAmp": 2, "poisonDecay": 1, "rewardChoices": 3 },
 
   "weapons": [
-    { "id": "dagger", "name": "短剣", "atk": 3, "defMod": 0, "bonusPoison": 1,
+    { "id": "dagger", "name": "短剣", "atk": 3, "defMod": 0, "bonusPoison": 2,
       "note": "基礎火力は低いが、命中ごとに毒を上乗せ。状態異常型と好相性。" },
     { "id": "sword", "name": "剣", "atk": 6, "defMod": 0, "bonusPoison": 0,
       "note": "クセのない万能武器。どのビルドでも腐らない安定択。" },
@@ -46,13 +46,13 @@
       "desc": "毒ダメージが2倍に。",
       "statMods": {}, "flags": ["poison_amp"], "hooks": [] },
     { "id": "corrosion", "name": "腐食", "archetype": "poison",
-      "desc": "毒に侵された敵への直接ダメージ+100%。",
+      "desc": "毒に侵された敵への直接ダメージ+150%。",
       "statMods": {}, "flags": [],
-      "hooks": [{ "trigger": "onAttack", "effect": "bonusDmgVsPoisoned", "params": { "ratio": 2.0 } }] },
+      "hooks": [{ "trigger": "onAttack", "effect": "bonusDmgVsPoisoned", "params": { "ratio": 2.5 } }] },
     { "id": "plague", "name": "疫病", "archetype": "poison",
       "desc": "毒で倒した敵から、周囲へ毒が伝播する。",
       "statMods": {}, "flags": [],
-      "hooks": [{ "trigger": "onKill", "effect": "spreadPoison", "params": { "amount": 4, "radius": 2 } }] },
+      "hooks": [{ "trigger": "onKill", "effect": "spreadPoison", "params": { "amount": 5, "radius": 2 } }] },
 
     { "id": "thorns", "name": "棘の鎧", "archetype": "thorns",
       "desc": "受けたダメージの50%を反射。",
