@@ -31,20 +31,23 @@ function checkData(): void {
     return;
   }
   const d = JSON.parse(readFileSync(p, "utf-8"));
-  const expect: Array<[string, number]> = [
-    ["weapons", 3],
-    ["relics", 17],
-    ["enemies", 8],
-    ["archetypes", 5],
+  // 件数はハードコードせず「最低限の存在」だけ検証（要素の追加で doctor 修正不要に）。
+  const minimums: Array<[string, number]> = [
+    ["weapons", 1], ["relics", 1], ["enemies", 1], ["archetypes", 1],
   ];
-  for (const [k, n] of expect) {
+  for (const [k, min] of minimums) {
     const len = Array.isArray(d[k]) ? d[k].length : -1;
-    if (len !== n) fail(`data.json ${k} の要素数が ${len}（期待 ${n}）`);
+    if (len < min) fail(`data.json ${k} が空または配列でない（${len}）`);
   }
   if (!Array.isArray(d.synergyCombos) || d.synergyCombos.length === 0)
     fail("data.json synergyCombos が空（コンボ統計の定義）");
-  // 必須数値に null/未定義が無いか
-  for (const w of d.weapons ?? []) if (w.atk == null) fail(`武器 ${w.id} の atk が null`);
+  // 必須数値に null/未定義が無いか（武器・敵・レリック・武器/レリックの効果パラメータ）
+  for (const w of d.weapons ?? []) {
+    if (w.atk == null) fail(`武器 ${w.id} の atk が null`);
+    for (const h of w.hooks ?? [])
+      for (const [pk, pv] of Object.entries(h.params ?? {}))
+        if (pv == null) fail(`武器 ${w.id} の効果パラメータ ${pk} が null`);
+  }
   for (const e of d.enemies ?? [])
     if (e.hp == null || e.atk == null || e.defense == null) fail(`敵 ${e.id} の hp/atk/defense に null`);
   for (const r of d.relics ?? [])
@@ -54,11 +57,17 @@ function checkData(): void {
   // 敵の behavior が behaviors レジストリに登録されているか（未登録＝即落ち＝齟齬検知）
   for (const e of d.enemies ?? [])
     if (!(e.behavior in BEHAVIORS)) fail(`敵 ${e.id} の behavior「${e.behavior}」が BEHAVIORS 未登録（behaviors.ts に追加を）`);
+  // 初期装備 start ブロック（数値変更を data.json に一元化）
+  if (d.start == null) fail("data.json start ブロックが無い（初期装備）");
+  else {
+    if (d.start.hp == null || d.start.atk == null) fail("data.json start.hp/atk が無い");
+    if (!Array.isArray(d.start.weaponPool) || d.start.weaponPool.length === 0) fail("data.json start.weaponPool が空");
+  }
   // tuning 必須キー
   for (const k of ["poisonAmp", "poisonDecay", "rewardChoices"])
     if (d.tuning?.[k] == null) fail(`data.json tuning.${k} が無い`);
   if (problems.length === 0)
-    ok("data.json 整合（武器3・レリック17・敵8・系統5・behavior登録済・tuning有・コンボ定義・null無し）");
+    ok(`data.json 整合（武器${d.weapons.length}・レリック${d.relics.length}・敵${d.enemies.length}・系統${d.archetypes.length}・start有・behavior登録済・tuning有・コンボ定義・null無し）`);
 }
 
 // ---- 2) package.json scripts ----
